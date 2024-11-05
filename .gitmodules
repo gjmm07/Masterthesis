@@ -1,0 +1,3 @@
+[submodule "OrthosisMotorController"]
+	path = OrthosisMotorController
+	url = git@github.com:gjmm07/OrthosisMotorController.git
