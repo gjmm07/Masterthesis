@@ -11,9 +11,14 @@ class Trigger(digitalio.DigitalInOut):
 
     async def trigger(self):
         self.value = True
-        await asyncio.sleep(0.5)
+        asyncio.ensure_future(asyncio.sleep(0.5))
         self.value = False
-        #
+
+    def start_recording(self):
+        asyncio.ensure_future(self.trigger())
+
+    def stop_recording(self):
+        asyncio.ensure_future(self.trigger())
 
 if __name__ == '__main__':
     t = Trigger()
