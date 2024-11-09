@@ -78,11 +78,10 @@ class DataRecorderManager:
         if has_digital_trigger:
             self._emg_recorder = Trigger()
         if has_delsys:
-            self._emg_recorder = EMGRecorder(self._path, self._write_data, self._stop_event)
+            self._emg_recorder = EMGRecorder(self._path)
             self._emg_recorder.start()
         self._pipeline = iter((self._sync_ort, self._start_rec_data, self._stop_rec_data, None))
         self._next_state = next(self._pipeline)
-
         self._include_ort = False
         if self._include_ort:
             self._ort_controller = FaulhaberMotorController("/dev/ttyUSB0")

@@ -2,41 +2,30 @@ import pickle
 import numpy as np
 from vicon_dssdk import ViconDataStream
 from itertools import count
+from ViconMoCap import _get_joint, _unit_vector
 
 client = ViconDataStream.Client()
 client.Connect('localhost')
 
 client.EnableMarkerData()
 
-def get_joint(point_a: tuple[tuple[float, ...], bool], point_b: tuple[tuple[float, ...], bool]):
-    point_a, occluded_a = point_a
-    point_b, occluded_b = point_b
-    if not (occluded_a and occluded_b):
-        rot_axis = np.array(point_b) - np.array(point_a)
-        return np.array(point_a) + (np.array(point_b) - np.array(point_a)) * 0.5, unit_vector(rot_axis)
-    return None, None
-
-def unit_vector(vec):
-    return vec / np.linalg.norm(vec)
-
-
 def calc_elbow_angle(marker: dict):
-    shoulder, _ = get_joint(marker["ShoulderB"], marker["ShoulderF"])
-    elbow, _ = get_joint(marker["ElbowO"], marker["ElbowI"])
-    wrist, _ = get_joint(marker["WristI"], marker["WristO"])
+    shoulder, _ = _get_joint(marker["ShoulderB"], marker["ShoulderF"])
+    elbow, _ = _get_joint(marker["ElbowO"], marker["ElbowI"])
+    wrist, _ = _get_joint(marker["WristI"], marker["WristO"])
     if any([x is None for x in [shoulder, elbow, wrist]]):
         return
-    vec_upper_arm = unit_vector(shoulder - elbow)
-    vec_lower_arm = unit_vector(elbow - wrist)
+    vec_upper_arm = _unit_vector(shoulder - elbow)
+    vec_lower_arm = _unit_vector(elbow - wrist)
     return np.degrees(np.arccos(np.clip(np.dot(vec_upper_arm, vec_lower_arm), -1.0, 1.0)))
 
 def calc_wrist_angle(marker: dict):
-    elbow, elbow_rot_axis = get_joint(marker["ElbowO"], marker["ElbowI"])
-    wrist, wrist_rot_axis = get_joint(marker["WristI"], marker["WristO"])
+    elbow, elbow_rot_axis = _get_joint(marker["ElbowO"], marker["ElbowI"])
+    wrist, wrist_rot_axis = _get_joint(marker["WristI"], marker["WristO"])
     if elbow is not None and wrist is not None:
-        vec_lower_arm = unit_vector(elbow - wrist)
-        n1 = unit_vector(np.cross(vec_lower_arm, wrist_rot_axis))
-        n2 = unit_vector(np.cross(vec_lower_arm, elbow_rot_axis))
+        vec_lower_arm = _unit_vector(elbow - wrist)
+        n1 = _unit_vector(np.cross(vec_lower_arm, wrist_rot_axis))
+        n2 = _unit_vector(np.cross(vec_lower_arm, elbow_rot_axis))
         theta = np.degrees(np.arccos(np.clip(np.dot(n1, n2), -1.0, 1.0)))
         if np.dot(np.cross(n1, n2), vec_lower_arm) > 0:
             return 360 - theta
