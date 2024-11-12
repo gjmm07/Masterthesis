@@ -5,6 +5,9 @@ import asyncio
 import numpy as np
 import os
 from datetime import datetime
+
+from tornado.queues import Queue
+
 from OrthosisMotorController import FaulhaberMotorController, ELBOW_MIN_POSITION, FOREARM_MIN_POSITION
 from ViconMoCap import ViconMoCap
 
@@ -66,13 +69,15 @@ class DataRecorderManager:
         self._path = _create_folder()
         self._cur_pos: deque[tuple[float, float]] = deque(maxlen=1)
         self._stop_event: asyncio.Event = asyncio.Event()
-        self._write_data: asyncio.Event = asyncio.Event()
+        self._start_rec: asyncio.Event = asyncio.Event()
+        self._stop_rec: asyncio.Event = asyncio.Event()
         if not (has_mm_human3d or has_vicon):
             raise ValueError("Needs either vicon or mmhumand3d")
         if has_mm_human3d:
             self._hum_pose_est = HumanPoseEstimator(self._cur_pos, self._stop_event, cam_id=0)
         if has_vicon:
-            self._hum_pose_est = ViconMoCap(self._cur_pos, self._stop_event)
+            self._hum_pose_est = ViconMoCap(
+                self._cur_pos, self._stop_event, self._path, self._start_rec, self._stop_rec)
         if not (has_delsys or has_digital_trigger):
             raise ValueError("Either needs digital trigger or Delsys to connect EMG")
         if has_digital_trigger:
@@ -80,22 +85,22 @@ class DataRecorderManager:
         if has_delsys:
             self._emg_recorder = EMGRecorder(self._path)
             self._emg_recorder.start()
-        self._pipeline = iter((self._sync_ort, self._start_rec_data, self._stop_rec_data, None))
+        self._pipeline = iter((self._set_zero, self._sync_ort, self._start_rec_data, self._stop_rec_data, None))
         self._next_state = next(self._pipeline)
         self._include_ort = False
         if self._include_ort:
-            self._ort_controller = FaulhaberMotorController("/dev/ttyUSB0")
+            self._ort_controller = FaulhaberMotorController("COM5")
+            self._ort_queue: asyncio.Queue[tuple[float | None, ...]] = asyncio.Queue(maxsize=1)
 
     async def main(self):
         tasks = [
-            self._hum_pose_est,
+            self._hum_pose_est.run(),
             self._keyboard_input(),
             # self.save_data()
         ]
         if self._include_ort:
-            que = asyncio.Queue()
             tasks += [self._ort_controller.connect_device(),
-                      self._ort_controller.start_background_tasks(que),
+                      self._ort_controller.start_background_tasks(self._ort_queue),
                       self._ort_controller.home()]
         await asyncio.gather(*tasks)
 
@@ -113,33 +118,41 @@ class DataRecorderManager:
                 self._next_state()
         await self.__aexit__(None, None, None)
 
+    def _set_zero(self):
+        asyncio.ensure_future(self._hum_pose_est.set_zero(2))
+        self._next_state = next(self._pipeline)
+
     def _sync_ort(self):
         # if not self._ort_controller.is_connected:
         #     return
 
         async def sync_ort():
-            i = 0
             while not self._stop_event.is_set():
-                await asyncio.sleep(1)
-                print(self._cur_pos.popleft())
-                # frame, full_pose = self._cur_pos.popleft()
-                # cv2.imwrite(f"img_{i}.jpg", frame)
-                # with open(f"pose_{i}.npz", "wb") as pose_f:
-                #     np.save(pose_f, full_pose)
-                # print(self._cur_pos.popleft())
-                i += 1
+                await asyncio.sleep(0.1)
+                if self._include_ort:
+                    try:
+                        self._ort_queue.put_nowait(self._cur_pos[-1])
+                    except asyncio.QueueFull:
+                        pass
+                else:
+                    print(self._cur_pos[-1])
         print("sync ort")
         self._next_state = next(self._pipeline)
         asyncio.ensure_future(sync_ort())
 
     def _start_rec_data(self):
+        if not self._emg_recorder.is_ready:
+            print("not ready for recording")
+            return
         print("start rec data")
         self._emg_recorder.start_recording()
+        self._start_rec.set()
         self._next_state = next(self._pipeline)
 
     def _stop_rec_data(self):
         print("stop rec data")
         self._emg_recorder.stop_recording()
+        self._stop_rec.set()
         self._next_state = next(self._pipeline)
 
     async def __aenter__(self):
@@ -150,7 +163,6 @@ class DataRecorderManager:
         if self._include_ort:
             await self._ort_controller.stop()
         self._stop_event.set()
-        self._write_data.set()
         self._hum_pose_est.stop()
         print("exit")
 

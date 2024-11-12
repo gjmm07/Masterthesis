@@ -7,6 +7,7 @@ import h5py
 import numpy as np
 from itertools import chain
 
+
 class EMGRecorder(Process):
 
     def __init__(self, path: os.PathLike or str, save_every: int = 10):
@@ -18,7 +19,7 @@ class EMGRecorder(Process):
         self._ready: Event = Event()
         self._save_every = save_every
 
-    def _create_paths(self, sensors, channels):
+    def _create_paths(self, sensors: list[str], channels: list[str]) -> list[os.PathLike or str]:
         paths, chans = [], []
         for sensor, channels in zip(sensors, channels):
             parent_path = os.path.join(self._base_path, sensor)
@@ -35,7 +36,8 @@ class EMGRecorder(Process):
         return paths
 
     @staticmethod
-    def _save_data(data, sensors, channels, paths):
+    def _save_data(
+            data: list[list[float]], sensors: list[str], channels: list[list[str]], paths: list[os.PathLike or str]):
         data = iter([np.array(x) for x in data])
         for sensor, sen_channels, path in zip(sensors, channels, paths):
             for channel in sen_channels:
@@ -47,32 +49,31 @@ class EMGRecorder(Process):
 
     def run(self):
         with DelsysCentro() as dcentro:
+            if dcentro is None:
+                return
             sensors, channels = dcentro.sensors, dcentro.channels
-            try:
-                paths = self._create_paths(sensors, channels)
-            except Exception as e:
-                print(e)
+            paths = self._create_paths(sensors, channels)
             dcentro.save_sensor_setup(self._base_path)
-            self._ready.set()
             i = 0
             data = [[] for _ in list(chain.from_iterable(channels))]
             while True:
                 data_bundles = dcentro.get_data()
                 if data_bundles is None:
                     continue
+                if not self._ready.is_set() and dcentro.is_ready:
+                    self._ready.set()
                 if self._start_rec_event.is_set():
-                    try:
-                        data = [prev_data + data_bundle for prev_data, data_bundle in zip(data, data_bundles)]
-                    except:
-                        print(data_bundles, data)
+                    # todo: save only part of the data_bundle
+                    data = [prev_data + data_bundle for prev_data, data_bundle in zip(data, data_bundles)]
                     i += 1
                 if i > self._save_every:
                     self._save_data(data, sensors, channels, paths)
                     data = [d.clear() or d for d in data]
                     i = 0
                 if self._stop_rec_event.is_set():
+                    # todo: save data only partly
+                    self._save_data(data, sensors, channels, paths)
                     break
-
 
     @property
     def is_ready(self):
@@ -86,11 +87,15 @@ class EMGRecorder(Process):
         self._stop_rec_event.set()
 
 if __name__ == "__main__":
-    er = EMGRecorder("recordings")
+    from data_rec import _create_folder
+    er = EMGRecorder(_create_folder())
     er.start()
-    time.sleep(20)
+    while True:
+        if er.is_ready:
+            break
     er.start_recording()
     time.sleep(5)
+    print("stop recording")
     er.stop_recording()
     time.sleep(5)
 
