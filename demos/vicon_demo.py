@@ -7,8 +7,6 @@ from ViconMoCap import _get_joint, _unit_vector
 client = ViconDataStream.Client()
 client.Connect('localhost')
 
-client.EnableMarkerData()
-
 def calc_elbow_angle(marker: dict):
     shoulder, _ = _get_joint(marker["ShoulderB"], marker["ShoulderF"])
     elbow, _ = _get_joint(marker["ElbowO"], marker["ElbowI"])
@@ -33,6 +31,7 @@ def calc_wrist_angle(marker: dict):
 
 
 def main(record_len: int = 0):
+    client.EnableMarkerData()
     data = []
     for _ in count(record_len):
         if not client.GetFrame():
@@ -47,12 +46,26 @@ def main(record_len: int = 0):
         data.append(marker)
     return data
 
+def main2(record_len: int = 0):
+    client.EnableSegmentData()
+    for i in count(record_len):
+        if not client.GetFrame():
+            continue
+        if not i % 20:
+            euler, occ = client.GetSegmentLocalRotationEulerXYZ("finn", "LowArm")
+            print(
+                round(np.degrees(euler[0])),
+                # round(np.degrees(np.arctan2(np.sin(euler[0]), np.cos(euler[1])))),
+                round(np.degrees(euler[2])))
+    return 1
+
+
 if __name__ == "__main__":
     save_data: bool = False
     try:
-        d = main()
-        with open("marker_data.pkl", "wb") as file:
-            pickle.dump(d, file)
+        d = main2()
+        # with open("marker_data.pkl", "wb") as file:
+        #     pickle.dump(d, file)
     except KeyboardInterrupt:
         print("Keyboard Interrupt")
 

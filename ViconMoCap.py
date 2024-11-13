@@ -5,8 +5,6 @@ import asyncio
 import numpy as np
 import h5py
 
-from EMGRecorder import EMGRecorder
-
 
 def _get_joint(
         point_a: tuple[tuple[float, ...], bool],
@@ -44,27 +42,65 @@ def _calc_wrist_angle(elbow: np.ndarray, wrist: np.ndarray, elbow_axis: np.ndarr
     theta = np.degrees(np.arccos(np.clip(np.dot(n1, n2), -1.0, 1.0)))
     return theta
 
+class _ViconMoCap:
 
-class ViconMoCap:
-
-    def __init__(
-            self,
-            cur_pos: deque[tuple[float, float]],
-            stop_event: asyncio.Event,
-            path: os.PathLike or str,
-            start_recoding: asyncio.Event,
-            stop_recording: asyncio.Event,
-            save_every: int = 20
-    ):
-        self._cur_pos = cur_pos
-        self._stop_event = stop_event
+    def __init__(self,
+                 enable_marker: bool,
+                 enable_segments: bool,
+                 cur_pos: deque[tuple[float, float]],
+                 stop_event: asyncio.Event,
+                 path: os.PathLike or str,
+                 start_recoding: asyncio.Event,
+                 stop_recording: asyncio.Event,
+                 save_every: int = 20
+                 ):
         self._client = ViconDataStream.Client()
         self._client.Connect('localhost')
-        self._client.EnableMarkerData()
+        if enable_marker:
+            self._client.EnableMarkerData()
+        if enable_segments:
+            self._client.EnableSegmentData()
+
+        self._cur_pos = cur_pos
+        self._stop_event = stop_event
+
         self._zero_pos: tuple[float, float] = (0, 0)
         self._base_path = os.path.join(path, "MoCap")
         os.makedirs(self._base_path, exist_ok=True)
         self._data_path = os.path.join(self._base_path, "data.h5")
+        self._start_recording: asyncio.Event = start_recoding
+        self._stop_recording: asyncio.Event = stop_recording
+        self._save_every = save_every
+
+    async def set_zero(self, delay: float = 0.0, direction: bool = False):
+        await asyncio.sleep(delay)
+        print("setting zero")
+        cur_pos = self._cur_pos[-1]
+        if direction:
+            self._zero_pos = self._zero_pos[0] - cur_pos[0], self._zero_pos[1] - cur_pos[1]
+        else:
+            self._zero_pos = cur_pos[0] + self._zero_pos[0], cur_pos[1] + self._zero_pos[1]
+        print(self._zero_pos)
+
+    async def run(self):
+        raise NotImplementedError("Not Implemented")
+
+    def stop(self):
+        pass
+
+
+class ViconMoCapMarker(_ViconMoCap):
+
+    def __init__(self,
+                 cur_pos: deque[tuple[float, float]],
+                 stop_event: asyncio.Event,
+                 path: os.PathLike or str,
+                 start_recoding: asyncio.Event,
+                 stop_recording: asyncio.Event,
+                 save_every: int = 20):
+
+        super().__init__(True, False, cur_pos, stop_event, path, start_recoding, stop_recording,
+                         save_every)
         with h5py.File(self._data_path, "w") as file:
             file.create_dataset("mocap",
                                 shape=(0, 9, 3),
@@ -72,10 +108,6 @@ class ViconMoCap:
                                 dtype="float32",
                                 chunks=True)
         self._data_bundle: dict = self._get_empty_bundle()
-        print(self._data_bundle)
-        self._star_recording: asyncio.Event = start_recoding
-        self._stop_recording: asyncio.Event = stop_recording
-        self._save_every = save_every
         self._save_setup()
 
     def _save_setup(self):
@@ -100,19 +132,14 @@ class ViconMoCap:
         return empty_data
 
     def _save_data(self, data: dict):
+        if not list(data.values())[0]:
+            return
         data = np.array(list(data.values())).transpose(1, 0, 2)
         with h5py.File(self._data_path, "a") as file:
             dset = file["mocap"]
             dset.resize((dset.shape[0] + data.shape[0]), axis=0)
             dset[-data.shape[0]:, :] = data
         self._data_bundle = {key: value.clear() or value for key, value in self._data_bundle.items()}
-
-    async def set_zero(self, delay: float = 0.0):
-        await asyncio.sleep(delay)
-        print("setting zero")
-        cur_pos = self._cur_pos[-1]
-        self._zero_pos = cur_pos[0] + self._zero_pos[0], cur_pos[1] + self._zero_pos[1]
-        print(self._zero_pos)
 
     def _calc_angles(self) -> tuple[dict, float, float]:
         marker = dict()
@@ -130,33 +157,74 @@ class ViconMoCap:
     def _update_queue(self, calculated_pos: tuple[float, float]):
         self._cur_pos.append((calculated_pos[0] - self._zero_pos[0], calculated_pos[1] - self._zero_pos[1]))
 
-    async def run(self):
+    async def _save_manager(self, queue: asyncio.Queue):
+        await self._start_recording.wait()
         i = 0
+        while not self._stop_recording.is_set():
+            try:
+                marker = await asyncio.wait_for(queue.get(), 0.5)
+            except asyncio.TimeoutError:
+                continue
+            self._data_bundle = {key: value + [marker[key][0]] for key, value in self._data_bundle.items()}
+            if i > self._save_every:
+                self._save_data(self._data_bundle)
+                i = 0
+        self._save_data(self._data_bundle)
+
+    async def _get_data(self, queue: asyncio.Queue):
         while not self._stop_event.is_set():
             await asyncio.sleep(0.01)
             if not self._client.GetFrame():
                 continue
             marker, *calc_pos = self._calc_angles()
-            if self._star_recording.is_set() and not self._stop_recording.is_set():
-                try:
-                    self._data_bundle = {key: value + [marker[key][0]] for key, value in self._data_bundle.items()}
-                except TypeError:
-                    print(self._data_bundle)
-                    print(marker)
-                if i > self._save_every:
-                    self._save_data(self._data_bundle)
-                    print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-                    i = 0
-            if self._stop_recording.is_set():
-                self._save_data(self._data_bundle)
-                # todo: mutex so other tasks can save the data
-                self._stop_recording.clear()
-                self._star_recording.clear()
+            await queue.put(marker)
             if not any((x is None for x in calc_pos)):
                 self._update_queue(calc_pos)
-            i += 1
 
-    def stop(self):
-        pass
+    async def run(self):
+        que = asyncio.Queue()
+        await asyncio.gather(
+            self._get_data(que),
+            self._save_manager(que)
+        )
+
+
+class ViconMoCapSegment(_ViconMoCap):
+
+    def __init__(self,
+                 cur_pos: deque[tuple[float, float]],
+                 stop_event: asyncio.Event,
+                 path: os.PathLike or str,
+                 start_recoding: asyncio.Event,
+                 stop_recording: asyncio.Event):
+        super().__init__(
+            False, True, cur_pos, stop_event, path, start_recoding, stop_recording)
+
+    async def _save_manager(self, queue: asyncio.Queue):
+        await asyncio.sleep(0.1)
+
+    async def _get_data(self, queue: asyncio.Queue):
+        while not self._stop_event.is_set():
+            await asyncio.sleep(0.01)
+            if not self._client.GetFrame():
+                continue
+            euler, occ = self._client.GetSegmentLocalRotationEulerXYZ("finn", "LowArm")
+            self._client.GetSegmentGlobalRotationEulerXYZ()
+            cur_pos = np.degrees(euler[0]), np.degrees(euler[2])
+            await queue.put(cur_pos)
+            self._cur_pos.append((self._zero_pos[0] - cur_pos[0], cur_pos[1] - self._zero_pos[1]))
+
+    async def set_zero(self, delay: float = 0.0, direction: bool = False):
+        await super().set_zero(delay, True)
+
+    async def run(self):
+        que = asyncio.Queue()
+        await asyncio.gather(
+            self._get_data(que),
+            self._save_manager(que)
+        )
+
+
+
 
 
