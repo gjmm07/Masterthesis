@@ -81,7 +81,7 @@ class DataRecorderManager:
         if has_mm_human3d:
             self._hum_pose_est = HumanPoseEstimator(self._cur_pos, self._stop_event, cam_id=0)
         if has_vicon:
-            self._hum_pose_est = ViconMoCapSegment(
+            self._hum_pose_est = ViconMoCapMarker(
                 self._cur_pos, self._stop_event, self._path, self._start_rec, self._stop_rec)
         if not (has_delsys or has_digital_trigger):
             raise ValueError("Either needs digital trigger or Delsys to connect EMG")
@@ -137,7 +137,7 @@ class DataRecorderManager:
                 await asyncio.sleep(0.1)
                 if INCLUDE_ORT:
                     try:
-                        self._ort_queue.put_nowait((self._cur_pos[-1][0], None))
+                        self._ort_queue.put_nowait(self._cur_pos[-1])
                     except asyncio.QueueFull:
                         pass
                 else:

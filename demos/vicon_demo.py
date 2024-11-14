@@ -3,6 +3,9 @@ import numpy as np
 from vicon_dssdk import ViconDataStream
 from itertools import count
 from ViconMoCap import _get_joint, _unit_vector
+from scipy.spatial.transform import Rotation as R
+import matplotlib.pyplot as plt
+
 
 client = ViconDataStream.Client()
 client.Connect('localhost')
@@ -46,26 +49,34 @@ def main(record_len: int = 0):
         data.append(marker)
     return data
 
-def main2(record_len: int = 0):
+def main2(record_len: int = 3000):
     client.EnableSegmentData()
-    for i in count(record_len):
-        if not client.GetFrame():
-            continue
-        if not i % 20:
-            euler, occ = client.GetSegmentLocalRotationEulerXYZ("finn", "LowArm")
-            print(
-                round(np.degrees(euler[0])),
-                # round(np.degrees(np.arctan2(np.sin(euler[0]), np.cos(euler[1])))),
-                round(np.degrees(euler[2])))
-    return 1
+    data = []
+    try:
+        for i in range(record_len):
+            if not client.GetFrame():
+                continue
+
+            global_up_arm, _ = client.GetSegmentGlobalRotationEulerXYZ("XArm", "UpArm")
+            global_low_arm, _ = client.GetSegmentGlobalRotationEulerXYZ("XArm", "LowArm")
+            # data.append(np.array(xx) - np.array(euler_xyz))
+            data.append(np.array(global_up_arm) - np.array(global_low_arm))
+    except KeyboardInterrupt:
+        return
+    return data
 
 
 if __name__ == "__main__":
     save_data: bool = False
     try:
         d = main2()
-        # with open("marker_data.pkl", "wb") as file:
-        #     pickle.dump(d, file)
+        data = np.degrees(np.array(d)[1:, :])
+        # data = np.where(data < 0, data + np.pi * 2, data)
+        plt.plot(data)
+        plt.legend(("local_euler_X", "local_euler_Y", "local_euler_Z"))
+        plt.xlabel("Samples")
+        plt.ylabel("deg")
+        plt.show()
     except KeyboardInterrupt:
         print("Keyboard Interrupt")
 

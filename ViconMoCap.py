@@ -4,6 +4,7 @@ from collections import deque
 import asyncio
 import numpy as np
 import h5py
+import utils
 
 
 def _get_joint(
@@ -17,7 +18,7 @@ def _get_joint(
     """
     point_a, occluded_a = point_a
     point_b, occluded_b = point_b
-    if not (occluded_a and occluded_b):
+    if not occluded_a and not occluded_b:
         rot_axis = np.array(point_b) - np.array(point_a)
         return np.array(point_a) + (np.array(point_b) - np.array(point_a)) * 0.5, _unit_vector(rot_axis)
     return None, None
@@ -67,10 +68,19 @@ class _ViconMoCap:
         self._zero_pos: tuple[float, float] = (0, 0)
         self._base_path = os.path.join(path, "MoCap")
         os.makedirs(self._base_path, exist_ok=True)
-        self._data_path = os.path.join(self._base_path, "data.h5")
+        self._data_path = os.path.join(self._base_path, "joint_data.h5")
         self._start_recording: asyncio.Event = start_recoding
         self._stop_recording: asyncio.Event = stop_recording
         self._save_every = save_every
+        self._create_joint_file()
+
+    def _create_joint_file(self):
+        with h5py.File(self._data_path, "w") as file:
+            file.create_dataset("joints",
+                                shape=(0, 2),
+                                maxshape=(None, 2),
+                                dtype="float32",
+                                chunks=True)
 
     async def set_zero(self, delay: float = 0.0, direction: bool = False):
         await asyncio.sleep(delay)
@@ -84,6 +94,25 @@ class _ViconMoCap:
 
     async def run(self):
         raise NotImplementedError("Not Implemented")
+
+    async def _save_manger_joint(self, join_que: asyncio.Queue[tuple[float, float]]):
+        await self._start_recording.wait()
+        i = 0
+        data = []
+        while not self._stop_recording.is_set():
+            try:
+                joints = await asyncio.wait_for(join_que.get(), 0.5)
+            except asyncio.TimeoutError:
+                continue
+            joints = [joint if joint is not None else -999 for joint in joints]
+            data.append(joints)
+            if i > self._save_every:
+                utils.save(self._data_path, np.array(data), "joints")
+                data = []
+                i = 0
+            i += 1
+        if data:
+            utils.save(self._data_path, np.array(data), "joints")
 
     def stop(self):
         pass
@@ -101,7 +130,8 @@ class ViconMoCapMarker(_ViconMoCap):
 
         super().__init__(True, False, cur_pos, stop_event, path, start_recoding, stop_recording,
                          save_every)
-        with h5py.File(self._data_path, "w") as file:
+        self._marker_path = os.path.join(self._base_path, "marker.h5")
+        with h5py.File(self._marker_path, "w") as file:
             file.create_dataset("mocap",
                                 shape=(0, 9, 3),
                                 maxshape=(None, 9, 3),
@@ -131,14 +161,11 @@ class ViconMoCapMarker(_ViconMoCap):
             empty_data[marker[0]] = []
         return empty_data
 
-    def _save_data(self, data: dict):
+    def _save_data_marker(self, data: dict):
         if not list(data.values())[0]:
             return
         data = np.array(list(data.values())).transpose(1, 0, 2)
-        with h5py.File(self._data_path, "a") as file:
-            dset = file["mocap"]
-            dset.resize((dset.shape[0] + data.shape[0]), axis=0)
-            dset[-data.shape[0]:, :] = data
+        utils.save(self._marker_path, data, "mocap")
         self._data_bundle = {key: value.clear() or value for key, value in self._data_bundle.items()}
 
     def _calc_angles(self) -> tuple[dict, float, float]:
@@ -157,7 +184,7 @@ class ViconMoCapMarker(_ViconMoCap):
     def _update_queue(self, calculated_pos: tuple[float, float]):
         self._cur_pos.append((calculated_pos[0] - self._zero_pos[0], calculated_pos[1] - self._zero_pos[1]))
 
-    async def _save_manager(self, queue: asyncio.Queue):
+    async def _save_manager_marker(self, queue: asyncio.Queue):
         await self._start_recording.wait()
         i = 0
         while not self._stop_recording.is_set():
@@ -167,25 +194,29 @@ class ViconMoCapMarker(_ViconMoCap):
                 continue
             self._data_bundle = {key: value + [marker[key][0]] for key, value in self._data_bundle.items()}
             if i > self._save_every:
-                self._save_data(self._data_bundle)
+                self._save_data_marker(self._data_bundle)
                 i = 0
-        self._save_data(self._data_bundle)
+        self._save_data_marker(self._data_bundle)
 
-    async def _get_data(self, queue: asyncio.Queue):
+    async def _get_data(self, marker_queue: asyncio.Queue[dict], joint_queue: asyncio.Queue[tuple[float, float]]):
         while not self._stop_event.is_set():
             await asyncio.sleep(0.01)
             if not self._client.GetFrame():
                 continue
             marker, *calc_pos = self._calc_angles()
-            await queue.put(marker)
+            if self._start_recording.is_set() and not self._stop_recording.is_set():
+                await marker_queue.put(marker)
+                await joint_queue.put(calc_pos)
             if not any((x is None for x in calc_pos)):
                 self._update_queue(calc_pos)
 
     async def run(self):
-        que = asyncio.Queue()
+        marker_que: asyncio.Queue[dict] = asyncio.Queue()
+        joint_que: asyncio.Queue[tuple[float, float]] = asyncio.Queue()
         await asyncio.gather(
-            self._get_data(que),
-            self._save_manager(que)
+            self._get_data(marker_que, joint_que),
+            self._save_manager_marker(marker_que),
+            self._save_manger_joint(joint_que)
         )
 
 
