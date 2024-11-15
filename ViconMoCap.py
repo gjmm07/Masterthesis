@@ -1,10 +1,69 @@
 import os
+from PIL.ImagePalette import random
 from vicon_dssdk import ViconDataStream
 from collections import deque
 import asyncio
 import numpy as np
 import h5py
 import utils
+from scipy.optimize import root
+
+
+class MarkerPrediction:
+
+    def __init__(self, marker_positions: np.ndarray):
+        self._marker_pos = marker_positions[0]
+        self._occluded = ~np.all(self._marker_pos, axis=2)
+
+    @classmethod
+    def from_file(cls, path: os.PathLike or str):
+        keys, marker_pos = utils.read_data(path)
+        return cls(marker_pos)
+
+    def calculate(self):
+        # exclude samples with occluded markers
+        markers = self._marker_pos[~np.any(self._occluded, axis=1), :]
+        best_brothers, mean_distances = self._get_brother_markers(markers)
+        index_pred = 4
+        initial_guess = markers[0, index_pred]
+        bros_idx = best_brothers[index_pred, 0:3]
+        md = mean_distances[index_pred, 0:3]
+        for marker in markers[1:]:
+            solution = marker[index_pred]
+            points = marker[bros_idx, :]
+            pred = self._triangulate(initial_guess, *points, *md)
+            print(np.linalg.norm(pred - solution))
+            # initial_guess = marker[index_pred]
+            initial_guess = pred
+
+    @staticmethod
+    def _get_brother_markers(markers):
+        """
+        Gets the best (marker which distance doesn't change much)  markers for every marker
+        :return:
+        """
+        best_brothers, mean_dists = [], []
+        for mask in np.eye(markers.shape[1]).astype(bool):
+            marker = markers[:, mask]
+            dists = np.linalg.norm(markers - marker, axis=2)
+            mean_dist = np.mean(dists, axis=0)
+            std_dists = np.std(dists, axis=0)
+            order = np.argsort(std_dists)
+            best_brothers.append(order)
+            mean_dists.append(mean_dist[order])
+        return np.array(best_brothers)[:, 1:], np.array(mean_dists)[:, 1:]
+
+    def _triangulate(self, initial_guess, point_a, point_b, point_c, dist_ad, dist_bd, dist_cd):
+
+        def funcs(args):
+            x, y, z = args
+            eq1 = (x - point_a[0])**2 + (y - point_a[1])**2 + (z - point_a[2])**2 - dist_ad**2
+            eq2 = (x - point_b[0])**2 + (y - point_b[1])**2 + (z - point_b[2])**2 - dist_bd**2
+            eq3 = (x - point_c[0]) ** 2 + (y - point_c[1]) ** 2 + (z - point_c[2]) ** 2 - dist_cd ** 2
+            return eq1, eq2, eq3
+        sol = root(funcs, initial_guess)
+        return sol.x
+
 
 
 def _get_joint(
@@ -25,6 +84,7 @@ def _get_joint(
 
 def _unit_vector(vec: np.ndarray):
     return vec / np.linalg.norm(vec)
+
 
 def _calc_elbow_angle(shoulder: np.ndarray, elbow: np.ndarray, wrist: np.ndarray):
     if any([x is None for x in [shoulder, elbow, wrist]]):
@@ -256,6 +316,9 @@ class ViconMoCapSegment(_ViconMoCap):
         )
 
 
+if __name__ == "__main__":
+    mp = MarkerPrediction.from_file("recordings/15-11-24--12-07-41/MoCap/marker.h5")
+    mp.calculate()
 
 
 

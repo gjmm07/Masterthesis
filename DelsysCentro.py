@@ -35,7 +35,7 @@ class _DelsysFilter:
         self._counter: int = 0
         self._ready: bool = False
 
-    def highpass_filter(self, data_bundle: list[list[float]]):
+    def highpass_filter(self, data_bundle: list[list[float]]) -> list[list[float]]:
         results = []
         for data, butter_parm, z in zip(data_bundle, self._butter_params, self._z_butter):
             res, z = sosfilt(butter_parm, data, zi=z)
@@ -52,7 +52,6 @@ class _DelsysFilter:
 
 
 class DelsysCentro:
-    # todo: High pass filter to remove dc-offset?
 
     def __init__(self):
         self._base = AeroPy()
