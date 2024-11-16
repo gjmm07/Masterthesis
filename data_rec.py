@@ -44,7 +44,7 @@ except ModuleNotFoundError:
 
 
 INCLUDE_ORT = False
-INCLUDE_EMG = True
+INCLUDE_EMG = False
 INCLUDE_MOCAP = True
 
 
@@ -141,7 +141,8 @@ class DataRecorderManager:
                     except asyncio.QueueFull:
                         pass
                 else:
-                    print([round(x) for x in self._cur_pos[-1]])
+                    # print([round(x) for x in self._cur_pos[-1]])
+                    pass
         print("sync ort")
         self._next_state = next(self._pipeline)
         asyncio.ensure_future(sync_ort())

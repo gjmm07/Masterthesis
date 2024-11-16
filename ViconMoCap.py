@@ -6,7 +6,7 @@ import asyncio
 import numpy as np
 import h5py
 import utils
-from scipy.optimize import root
+from scipy.optimize import root, minimize
 from typing import Sequence
 
 
@@ -26,27 +26,30 @@ def _get_brother_markers(markers: np.ndarray):
         mean_dists.append(mean_dist[order])
     return np.array(best_brothers)[:, 1:], np.array(mean_dists)[:, 1:]
 
-def _drop_occluded_markers(markers: np.ndarray):
-    occluded = ~np.all(markers, axis=2)
-    return markers[~np.any(occluded, axis=1), :]
+def _mask_occluded_samples(markers: np.ndarray):
+    return ~np.any(~np.all(markers, axis=2), axis=1)
 
 
 class _MarkerPrediction:
 
     def __init__(self,
                  best_brothers: np.ndarray,
-                 mean_distances: np.ndarray):
+                 mean_distances: np.ndarray,
+                 mask: np.ndarray):
         self._best_brothers = best_brothers
         self._mean_distances = mean_distances
-        self._last_position = np.zeros(self._mean_distances.shape)
+        self._sample_mask = mask
+        self._last_valid_position = np.zeros((self._mean_distances.shape[0], 3))
+        self._last_seen = np.zeros(self._mean_distances.shape[0]) - 1
+        self._initial_guess = np.zeros((self._mean_distances.shape[0], 3))
 
     @classmethod
     def from_file_data(cls, path: os.PathLike or str):
         keys, marker_pos = utils.read_data(path)
-        marker_pos = marker_pos[0]
-        marker_pos = _drop_occluded_markers(marker_pos)
-        best_brothers, mean_distances = _get_brother_markers(marker_pos)
-        return cls(best_brothers, mean_distances)
+        marker_pos = marker_pos[keys.index("mocap")]
+        mask = _mask_occluded_samples(marker_pos)
+        best_brothers, mean_distances = _get_brother_markers(marker_pos[mask])
+        return cls(best_brothers, mean_distances, mask)
 
     @classmethod
     def from_file(cls, path: os.PathLike or str):
@@ -57,56 +60,80 @@ class _MarkerPrediction:
         pass
 
     def test(self, markers: np.ndarray):
-        index_pred = 8
-        markers = _drop_occluded_markers(markers)
-        self._last_position = markers[0]
+        markers = markers[563:738]
+        pred_index = 4
+        initial_pred = markers[0, pred_index]
+        bros = self._best_brothers[pred_index, :3]
+        dists = self._mean_distances[pred_index, :3]
+        errors = []
         for marker in markers[1:]:
-            solution = marker[index_pred]
-            prediction = self._predict(marker, (index_pred, ))[0]
-            print(np.linalg.norm(prediction - solution))
-            self._last_position = marker
+            solution = marker[pred_index]
+            points = marker[bros, :]
+            res = self._triangulate(initial_pred, points, dists)
+            error = np.linalg.norm(res - solution)
+            print(error)
+            errors.append(error)
+            initial_pred = res
+        print("___")
+        print(max(errors))
 
-    def _predict(self, markers: np.ndarray, pred_index: Sequence[int]):
-        predictions = []
-        for i in pred_index:
-            initial_guess = self._last_position[i]
-            bros_idx = self._best_brothers[i, :3]
-            points = markers[bros_idx, :]
-            mean_dists = self._mean_distances[i, :3]
-            pred = self._triangulate(initial_guess, points[0], points[1], points[2],
-                                     mean_dists[0], mean_dists[1], mean_dists[2])
-            predictions.append(pred)
-        return predictions
+    def predict(
+            self, markers: np.ndarray, occluded: np.ndarray, indices: Sequence[int]) -> tuple[np.ndarray, np.ndarray]:
+        # predicted
+        #   -1: not occluded
+        #   1: predicted
+        #   0: unable to predict
+        #   -2: no need to predict as marker is only for redundancy
+        # todo: During recordings data for marker prediction, this needs to be disabled
+        # return markers, np.array([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self._last_valid_position[~occluded] = markers[~occluded]
+        self._last_seen = np.where(occluded, self._last_seen + 1, 0)
+        self._initial_guess[~occluded] = markers[~occluded]
+        indices = list(indices)
+        predicted = []
+        for i, occ in enumerate(occluded):
+            if not occ:
+                predicted.append(-1)
+                if indices and indices[0] == i:
+                    del indices[0]
+                continue
+            elif i not in indices:
+                # no need to predict as marker is not used
+                predicted.append(-2)
+                continue
+            bros = self._best_brothers[i, :3]
+            if any(occluded[bros]):
+                # unable to predict because bros are also occluded
+                predicted.append(0)
+            dists = self._mean_distances[i, :3]
+            points = markers[bros, :]
+            pred = self._triangulate(self._initial_guess[i], points, dists)
+            markers[i] = pred
+            predicted.append(1)
+        return markers, np.array(predicted)
 
     @staticmethod
-    def _triangulate(initial_guess: np.ndarray, point_a, point_b, point_c, dist_ad, dist_bd, dist_cd):
+    def _triangulate(initial_guess: np.ndarray, points, dists):
+
         def funcs(args):
-            x, y, z = args
-            eq1 = (x - point_a[0])**2 + (y - point_a[1])**2 + (z - point_a[2])**2 - dist_ad**2
-            eq2 = (x - point_b[0])**2 + (y - point_b[1])**2 + (z - point_b[2])**2 - dist_bd**2
-            eq3 = (x - point_c[0]) ** 2 + (y - point_c[1]) ** 2 + (z - point_c[2]) ** 2 - dist_cd ** 2
-            return eq1, eq2, eq3
+            eqs = np.sum((args - points) ** 2, axis=1) - dists ** 2
+            return eqs
 
         sol = root(funcs, initial_guess)
         return sol.x
 
 
-
 def _get_joint(
-        point_a: tuple[tuple[float, ...], bool],
-        point_b: tuple[tuple[float, ...], bool]) -> tuple[np.ndarray, ...] | tuple[None, None]:
+        point_a: np.ndarray,
+        point_b: np.ndarray) -> tuple[np.ndarray, ...] | tuple[None, None]:
     """
     Gets the joint center position (x, y, z) as well as the axis of rotation vec[dim=3] from a single joint
     :param point_a: first marker position belonging to the joint
     :param point_b: second marker position belonging to the same join
     :return: tuple
     """
-    point_a, occluded_a = point_a
-    point_b, occluded_b = point_b
-    if not occluded_a and not occluded_b:
-        rot_axis = np.array(point_b) - np.array(point_a)
-        return np.array(point_a) + (np.array(point_b) - np.array(point_a)) * 0.5, _unit_vector(rot_axis)
-    return None, None
+    rot_axis = np.array(point_b) - np.array(point_a)
+    return np.array(point_a) + (np.array(point_b) - np.array(point_a)) * 0.5, _unit_vector(rot_axis)
 
 def _unit_vector(vec: np.ndarray):
     return vec / np.linalg.norm(vec)
@@ -214,8 +241,9 @@ class ViconMoCapMarker(_ViconMoCap):
                  stop_recording: asyncio.Event,
                  save_every: int = 20):
 
-        super().__init__(True, False, cur_pos, stop_event, path, start_recoding, stop_recording,
-                         save_every)
+        super().__init__(
+            True, False, cur_pos, stop_event,
+            path, start_recoding, stop_recording, save_every)
         self._marker_path = os.path.join(self._base_path, "marker.h5")
         with h5py.File(self._marker_path, "w") as file:
             file.create_dataset("mocap",
@@ -223,8 +251,15 @@ class ViconMoCapMarker(_ViconMoCap):
                                 maxshape=(None, 9, 3),
                                 dtype="float32",
                                 chunks=True)
-        self._data_bundle: dict = self._get_empty_bundle()
+            file.create_dataset("marker_prediction",
+                                shape=(0, 9),
+                                maxshape=(None, 9),
+                                dtype="int",
+                                chunks=True)
+        self._data_bundle: tuple[list[np.ndarray], list[np.ndarray]] = ([], [])
         self._save_setup()
+        self._marker_predictor = _MarkerPrediction.from_file_data("recordings/16-11-24--16-33-29/MoCap/marker.h5")
+        # self._marker_predictor = _MarkerPrediction(np.array([1, 2, 3]), np.array([1]), np.array([1]))
 
     def _save_setup(self):
         self._client.GetFrame()
@@ -239,6 +274,7 @@ class ViconMoCapMarker(_ViconMoCap):
                     file.write(f"\t {segment}\n")
 
     def _get_empty_bundle(self) -> dict:
+        raise DeprecationWarning("Should not be used anymore")
         empty_data = {}
         self._client.GetFrame()
         subject = self._client.GetSubjectNames()[0]
@@ -247,57 +283,78 @@ class ViconMoCapMarker(_ViconMoCap):
             empty_data[marker[0]] = []
         return empty_data
 
-    def _save_data_marker(self, data: dict):
-        if not list(data.values())[0]:
+    def _save_data_marker(self):
+        if not self._data_bundle[0]:
             return
-        data = np.array(list(data.values())).transpose(1, 0, 2)
-        utils.save(self._marker_path, data, "mocap")
-        self._data_bundle = {key: value.clear() or value for key, value in self._data_bundle.items()}
+        utils.save(self._marker_path,
+                   [np.array(x) for x in self._data_bundle],
+                   ("mocap", "marker_prediction"))
+        self._data_bundle = ([], [])
 
-    def _calc_angles(self) -> tuple[dict, float, float]:
-        marker = dict()
+    def _calc_angles(self) -> tuple[np.ndarray, np.ndarray, float, float]:
+        # marker = dict()
         self._client.GetLabeledMarkers()
-        marker = dict()
+        positions, occluded = [], []
         for name, parent in self._client.GetMarkerNames("XArm"):
-            marker[name] = self._client.GetMarkerGlobalTranslation("XArm", name)
-        shoulder, _ = _get_joint(marker["ShoulderB"], marker["ShoulderF"])
-        elbow, elbow_axis = _get_joint(marker["ElbowO"], marker["ElbowI"])
-        wrist, wrist_axis = _get_joint(marker["WristI"], marker["WristO"])
+            pos, occ = self._client.GetMarkerGlobalTranslation("XArm", name)
+            positions.append(pos)
+            occluded.append(occ)
+        # 0: ShoulderB
+        # 1: ShoulderF
+        # 2: ElbowO
+        # 4: ElbowI
+        # 5: WristI
+        # 6: WristO
+        positions = np.array(positions)
+        occluded = np.array(occluded)
+        marker, predicted = self._marker_predictor.predict(positions, occluded, (0, 1, 2, 4, 5, 6))
+
+        shoulder, _ = _get_joint(marker[0], marker[1])
+        elbow, elbow_axis = _get_joint(marker[2], marker[4])
+        wrist, wrist_axis = _get_joint(marker[5], marker[6])
         return (marker,
+                predicted,
                 _calc_elbow_angle(shoulder, elbow, wrist),
                 _calc_wrist_angle(elbow, wrist, elbow_axis, wrist_axis))
 
     def _update_queue(self, calculated_pos: tuple[float, float]):
         self._cur_pos.append((calculated_pos[0] - self._zero_pos[0], calculated_pos[1] - self._zero_pos[1]))
 
-    async def _save_manager_marker(self, queue: asyncio.Queue):
+    async def _save_manager_marker(self, queue: asyncio.Queue[tuple[np.ndarray, np.ndarray]]):
         await self._start_recording.wait()
         i = 0
         while not self._stop_recording.is_set():
             try:
-                marker = await asyncio.wait_for(queue.get(), 0.5)
+                data = await asyncio.wait_for(queue.get(), 0.5)
             except asyncio.TimeoutError:
                 continue
-            self._data_bundle = {key: value + [marker[key][0]] for key, value in self._data_bundle.items()}
+            # self._data_bundle = {key: value + [marker[key][0]] for key, value in self._data_bundle.items()}
+            self._data_bundle[0].append(data[0])
+            self._data_bundle[1].append(data[1])
             if i > self._save_every:
-                self._save_data_marker(self._data_bundle)
+                self._save_data_marker()
                 i = 0
-        self._save_data_marker(self._data_bundle)
+            i += 1
+        self._save_data_marker()
 
-    async def _get_data(self, marker_queue: asyncio.Queue[dict], joint_queue: asyncio.Queue[tuple[float, float]]):
+    async def _get_data(
+            self,
+            marker_queue: asyncio.Queue[tuple[np.ndarray, np.ndarray]],
+            joint_queue: asyncio.Queue[tuple[float, float]]):
+
         while not self._stop_event.is_set():
             await asyncio.sleep(0.01)
             if not self._client.GetFrame():
                 continue
-            marker, *calc_pos = self._calc_angles()
+            marker, predicted, *calc_pos = self._calc_angles()
             if self._start_recording.is_set() and not self._stop_recording.is_set():
-                await marker_queue.put(marker)
+                await marker_queue.put((marker, predicted))
                 await joint_queue.put(calc_pos)
             if not any((x is None for x in calc_pos)):
                 self._update_queue(calc_pos)
 
     async def run(self):
-        marker_que: asyncio.Queue[dict] = asyncio.Queue()
+        marker_que: asyncio.Queue[tuple[np.ndarray, np.ndarray]] = asyncio.Queue()
         joint_que: asyncio.Queue[tuple[float, float]] = asyncio.Queue()
         await asyncio.gather(
             self._get_data(marker_que, joint_que),
@@ -343,6 +400,7 @@ class ViconMoCapSegment(_ViconMoCap):
 
 
 if __name__ == "__main__":
+    path = "recordings/15-11-24--12-07-41/MoCap/marker.h5"
     pth = "recordings/15-11-24--12-07-41/MoCap/marker.h5"
     mp = _MarkerPrediction.from_file_data(pth)
     _, m = utils.read_data(pth)
