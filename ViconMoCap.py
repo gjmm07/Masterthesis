@@ -7,60 +7,86 @@ import numpy as np
 import h5py
 import utils
 from scipy.optimize import root
+from typing import Sequence
 
 
-class MarkerPrediction:
+def _get_brother_markers(markers: np.ndarray):
+    """
+    Gets the best (marker which distance doesn't change much)  markers for every marker
+    :return:
+    """
+    best_brothers, mean_dists = [], []
+    for mask in np.eye(markers.shape[1]).astype(bool):
+        marker = markers[:, mask]
+        dists = np.linalg.norm(markers - marker, axis=2)
+        mean_dist = np.mean(dists, axis=0)
+        std_dists = np.std(dists, axis=0)
+        order = np.argsort(std_dists)
+        best_brothers.append(order)
+        mean_dists.append(mean_dist[order])
+    return np.array(best_brothers)[:, 1:], np.array(mean_dists)[:, 1:]
 
-    def __init__(self, marker_positions: np.ndarray):
-        self._marker_pos = marker_positions[0]
-        self._occluded = ~np.all(self._marker_pos, axis=2)
+def _drop_occluded_markers(markers: np.ndarray):
+    occluded = ~np.all(markers, axis=2)
+    return markers[~np.any(occluded, axis=1), :]
+
+
+class _MarkerPrediction:
+
+    def __init__(self,
+                 best_brothers: np.ndarray,
+                 mean_distances: np.ndarray):
+        self._best_brothers = best_brothers
+        self._mean_distances = mean_distances
+        self._last_position = np.zeros(self._mean_distances.shape)
+
+    @classmethod
+    def from_file_data(cls, path: os.PathLike or str):
+        keys, marker_pos = utils.read_data(path)
+        marker_pos = marker_pos[0]
+        marker_pos = _drop_occluded_markers(marker_pos)
+        best_brothers, mean_distances = _get_brother_markers(marker_pos)
+        return cls(best_brothers, mean_distances)
 
     @classmethod
     def from_file(cls, path: os.PathLike or str):
-        keys, marker_pos = utils.read_data(path)
-        return cls(marker_pos)
+        pass
 
-    def calculate(self):
-        # exclude samples with occluded markers
-        markers = self._marker_pos[~np.any(self._occluded, axis=1), :]
-        best_brothers, mean_distances = self._get_brother_markers(markers)
-        index_pred = 4
-        initial_guess = markers[0, index_pred]
-        bros_idx = best_brothers[index_pred, 0:3]
-        md = mean_distances[index_pred, 0:3]
+    @classmethod
+    def from_numpy(cls, ary: np.ndarray):
+        pass
+
+    def test(self, markers: np.ndarray):
+        index_pred = 8
+        markers = _drop_occluded_markers(markers)
+        self._last_position = markers[0]
         for marker in markers[1:]:
             solution = marker[index_pred]
-            points = marker[bros_idx, :]
-            pred = self._triangulate(initial_guess, *points, *md)
-            print(np.linalg.norm(pred - solution))
-            # initial_guess = marker[index_pred]
-            initial_guess = pred
+            prediction = self._predict(marker, (index_pred, ))[0]
+            print(np.linalg.norm(prediction - solution))
+            self._last_position = marker
+
+    def _predict(self, markers: np.ndarray, pred_index: Sequence[int]):
+        predictions = []
+        for i in pred_index:
+            initial_guess = self._last_position[i]
+            bros_idx = self._best_brothers[i, :3]
+            points = markers[bros_idx, :]
+            mean_dists = self._mean_distances[i, :3]
+            pred = self._triangulate(initial_guess, points[0], points[1], points[2],
+                                     mean_dists[0], mean_dists[1], mean_dists[2])
+            predictions.append(pred)
+        return predictions
 
     @staticmethod
-    def _get_brother_markers(markers):
-        """
-        Gets the best (marker which distance doesn't change much)  markers for every marker
-        :return:
-        """
-        best_brothers, mean_dists = [], []
-        for mask in np.eye(markers.shape[1]).astype(bool):
-            marker = markers[:, mask]
-            dists = np.linalg.norm(markers - marker, axis=2)
-            mean_dist = np.mean(dists, axis=0)
-            std_dists = np.std(dists, axis=0)
-            order = np.argsort(std_dists)
-            best_brothers.append(order)
-            mean_dists.append(mean_dist[order])
-        return np.array(best_brothers)[:, 1:], np.array(mean_dists)[:, 1:]
-
-    def _triangulate(self, initial_guess, point_a, point_b, point_c, dist_ad, dist_bd, dist_cd):
-
+    def _triangulate(initial_guess: np.ndarray, point_a, point_b, point_c, dist_ad, dist_bd, dist_cd):
         def funcs(args):
             x, y, z = args
             eq1 = (x - point_a[0])**2 + (y - point_a[1])**2 + (z - point_a[2])**2 - dist_ad**2
             eq2 = (x - point_b[0])**2 + (y - point_b[1])**2 + (z - point_b[2])**2 - dist_bd**2
             eq3 = (x - point_c[0]) ** 2 + (y - point_c[1]) ** 2 + (z - point_c[2]) ** 2 - dist_cd ** 2
             return eq1, eq2, eq3
+
         sol = root(funcs, initial_guess)
         return sol.x
 
@@ -317,8 +343,11 @@ class ViconMoCapSegment(_ViconMoCap):
 
 
 if __name__ == "__main__":
-    mp = MarkerPrediction.from_file("recordings/15-11-24--12-07-41/MoCap/marker.h5")
-    mp.calculate()
+    pth = "recordings/15-11-24--12-07-41/MoCap/marker.h5"
+    mp = _MarkerPrediction.from_file_data(pth)
+    _, m = utils.read_data(pth)
+    m = m[0]
+    mp.test(m)
 
 
 
