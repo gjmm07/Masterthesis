@@ -1,13 +1,13 @@
+from asyncio import gather
 from collections import deque
+from typing import Optional
+
 import cv2
 from pynput import keyboard
 import asyncio
 import numpy as np
 import os
 from datetime import datetime
-
-from tornado.queues import Queue
-
 from OrthosisMotorController import FaulhaberMotorController, ELBOW_MIN_POSITION, FOREARM_MIN_POSITION
 from ViconMoCap import ViconMoCapSegment, ViconMoCapMarker
 
@@ -43,9 +43,10 @@ except ModuleNotFoundError:
     has_vicon = False
 
 
-INCLUDE_ORT = False
-INCLUDE_EMG = False
+INCLUDE_ORT = True
+INCLUDE_EMG = True
 INCLUDE_MOCAP = True
+SUBJECT = "Finn"
 
 
 def _create_folder():
@@ -68,12 +69,87 @@ def transmit_keys(loop: asyncio.AbstractEventLoop):
     keyboard.Listener(on_release=on_release, suppress=True).start()
     return queue
 
-class DataRecorderManager:
+class _DataRecorder:
+
+    def __init__(self, stop_event: asyncio.Event, pipeline: tuple):
+        self._stop_event: asyncio.Event = stop_event
+        self._pipeline = iter(pipeline)
+        self._next_state = next(self._pipeline)
+        self._path = _create_folder()
+        self._save_name()
+
+    def _save_name(self):
+        with open(os.path.join(self._path, "name.txt"), "w") as file:
+            file.write(SUBJECT)
+
+    async def _keyboard_input(self):
+        loop = asyncio.get_event_loop()
+        key_queue = transmit_keys(loop)
+        while True:
+            key = await key_queue.get()
+            if key == keyboard.Key.esc:
+                print("esc")
+                self._stop_event.set()
+                break
+            elif key == keyboard.Key.enter:
+                if self._next_state is None:
+                    break
+                self._next_state()
+        await self.__aexit__(None, None, None)
+
+    async def __aenter__(self):
+        raise NotImplementedError("Please implement in inheriting class")
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        raise NotImplementedError("Please implement in inheriting class")
+
+
+class InitMoCap(_DataRecorder):
 
     def __init__(self):
-        self._path = _create_folder()
-        self._cur_pos: deque[tuple[float, float]] = deque(maxlen=1)
+        self._start_rec = asyncio.Event()
+        self._stop_rec: asyncio.Event = asyncio.Event()
         self._stop_event: asyncio.Event = asyncio.Event()
+        super().__init__(self._stop_event, (self._start_rec_data, self._stop_rec_data, None))
+        self._hum_pose_est = ViconMoCapMarker.collect_only(
+            self._stop_event, self._path, self._start_rec, self._stop_rec
+        )
+
+    async def main(self):
+        tasks = (self._hum_pose_est.run(),
+                 self._keyboard_input())
+        await asyncio.gather(*tasks)
+
+    async def _save_model(self):
+        await asyncio.sleep(0.3) # give time to end data writing
+        self._hum_pose_est.save_marker_model()
+
+    def _start_rec_data(self):
+        print("start rec")
+        self._start_rec.set()
+        self._next_state = next(self._pipeline)
+
+    def _stop_rec_data(self):
+        print("stop rec")
+        self._stop_rec.set()
+        asyncio.ensure_future(self._save_model())
+        self._next_state = next(self._pipeline)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self._start_rec.set()
+        self._stop_rec.set()
+        self._stop_event.set()
+
+class DataRecorderManager(_DataRecorder):
+
+    def __init__(self):
+        self._stop_event: asyncio.Event = asyncio.Event()
+        super().__init__(self._stop_event,
+                         (self._set_zero, self._sync_ort, self._start_rec_data, self._stop_rec_data, None))
+        self._cur_pos: deque[tuple[float, float]] = deque(maxlen=1)
         self._start_rec: asyncio.Event = asyncio.Event()
         self._stop_rec: asyncio.Event = asyncio.Event()
         if not (has_mm_human3d or has_vicon):
@@ -91,8 +167,6 @@ class DataRecorderManager:
             self._emg_recorder = EMGRecorder(self._path)
             if INCLUDE_EMG:
                 self._emg_recorder.start()
-        self._pipeline = iter((self._set_zero, self._sync_ort, self._start_rec_data, self._stop_rec_data, None))
-        self._next_state = next(self._pipeline)
         if INCLUDE_ORT:
             self._ort_controller = FaulhaberMotorController(
                 "COM5", save_path=self._path, start_rec=self._start_rec, stop_rec=self._stop_rec)
@@ -108,20 +182,6 @@ class DataRecorderManager:
                       self._ort_controller.start_background_tasks(self._ort_queue),
                       self._ort_controller.home()]
         await asyncio.gather(*tasks)
-
-    async def _keyboard_input(self):
-        loop = asyncio.get_event_loop()
-        key_queue = transmit_keys(loop)
-        while True:
-            key = await key_queue.get()
-            if key == keyboard.Key.esc:
-                self._stop_event.set()
-                break
-            elif key == keyboard.Key.enter:
-                if self._next_state is None:
-                    break
-                self._next_state()
-        await self.__aexit__(None, None, None)
 
     def _set_zero(self):
         asyncio.ensure_future(self._hum_pose_est.set_zero(2))
@@ -141,8 +201,7 @@ class DataRecorderManager:
                     except asyncio.QueueFull:
                         pass
                 else:
-                    # print([round(x) for x in self._cur_pos[-1]])
-                    pass
+                    print([round(x) for x in self._cur_pos[-1]])
         print("sync ort")
         self._next_state = next(self._pipeline)
         asyncio.ensure_future(sync_ort())
@@ -181,5 +240,11 @@ async def main():
         await dr.main()
 
 
+async def init_mocap():
+    async with InitMoCap() as imocap:
+        await imocap.main()
+
+
 if __name__ == '__main__':
+    # asyncio.run(init_mocap())
     asyncio.run(main())

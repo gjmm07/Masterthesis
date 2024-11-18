@@ -7,7 +7,7 @@ import numpy as np
 import h5py
 import utils
 from scipy.optimize import root, minimize
-from typing import Sequence
+from typing import Sequence, Optional
 
 
 def _get_brother_markers(markers: np.ndarray):
@@ -33,59 +33,82 @@ def _mask_occluded_samples(markers: np.ndarray):
 class _MarkerPrediction:
 
     def __init__(self,
-                 best_brothers: np.ndarray,
-                 mean_distances: np.ndarray,
-                 mask: np.ndarray):
-        self._best_brothers = best_brothers
-        self._mean_distances = mean_distances
-        self._sample_mask = mask
-        self._last_valid_position = np.zeros((self._mean_distances.shape[0], 3))
-        self._last_seen = np.zeros(self._mean_distances.shape[0]) - 1
-        self._initial_guess = np.zeros((self._mean_distances.shape[0], 3))
+                 collect_only: bool,
+                 best_brothers: Optional[np.ndarray] = None,
+                 mean_distances: Optional[np.ndarray] = None):
+        self._collect_only = collect_only
+        if not collect_only and (best_brothers is None or mean_distances is None):
+            raise ValueError("If you don't want to collect only, you need to specify best_brothers and mean_distance")
+        if not collect_only:
+            self._best_brothers = best_brothers
+            self._mean_distances = mean_distances
+            self._last_valid_position = np.zeros((self._mean_distances.shape[0], 3))
+            self._last_seen = np.zeros(self._mean_distances.shape[0]) - 1
+            self._initial_guess = np.zeros((self._mean_distances.shape[0], 3))
 
     @classmethod
     def from_file_data(cls, path: os.PathLike or str):
         keys, marker_pos = utils.read_data(path)
         marker_pos = marker_pos[keys.index("mocap")]
         mask = _mask_occluded_samples(marker_pos)
+        min_frames = 100
+        if np.sum(mask) < min_frames:
+            raise ValueError(
+                f"Calculating model failed because not all markers where visible in at least {min_frames} frames, "
+                f"only {np.sum(mask)} valid frames")
         best_brothers, mean_distances = _get_brother_markers(marker_pos[mask])
-        return cls(best_brothers, mean_distances, mask)
+        return cls(False, best_brothers, mean_distances)
 
     @classmethod
-    def from_file(cls, path: os.PathLike or str):
-        pass
+    def from_file(cls, path: os.PathLike or str = "marker_model"):
+        best_brothers = np.genfromtxt(os.path.join(path, "best_brothers.csv"), delimiter=",", dtype=int)
+        mean_distance = np.genfromtxt(os.path.join(path, "mean_distances.csv"), delimiter=",")
+        return cls(False, best_brothers, mean_distance)
 
-    @classmethod
-    def from_numpy(cls, ary: np.ndarray):
-        pass
+    def save_model(self, path: os.PathLike or str = "marker_model/"):
+        os.makedirs(path, exist_ok=True)
+        np.savetxt(os.path.join(path, "best_brothers.csv"), self._best_brothers, fmt="%i", delimiter=",")
+        np.savetxt(os.path.join(path, "mean_distances.csv"), self._mean_distances, fmt="%1.5f", delimiter=",")
 
     def test(self, markers: np.ndarray):
-        markers = markers[563:738]
-        pred_index = 4
-        initial_pred = markers[0, pred_index]
-        bros = self._best_brothers[pred_index, :3]
-        dists = self._mean_distances[pred_index, :3]
-        errors = []
-        for marker in markers[1:]:
-            solution = marker[pred_index]
-            points = marker[bros, :]
-            res = self._triangulate(initial_pred, points, dists)
-            error = np.linalg.norm(res - solution)
-            print(error)
-            errors.append(error)
-            initial_pred = res
-        print("___")
-        print(max(errors))
+        """
+        tests the algorithm
+        :param              markers: marker array to be tested - ensure marker are sequential and none is occluded
+        :return:
+        """
+        pred_index = 5
+        n_predictions = 10
+        from_ = np.random.randint(2, markers.shape[0] - n_predictions)
+        to = from_ + n_predictions
+        for i, marker in enumerate(markers):
+            occluded = np.zeros(markers.shape[1]).astype(bool)
+            if from_ <= i <= to:
+                occluded[pred_index] = True
+                sim_marker = marker.copy()
+                sim_marker[pred_index] = np.zeros((3, ))
+                pred, pred_type = self.predict(sim_marker, occluded, (pred_index, ))
+                print(np.linalg.norm(pred[pred_index] - marker[pred_index]))
+            else:
+                self.predict(marker, occluded, (pred_index, ))
+
 
     def predict(
             self, markers: np.ndarray, occluded: np.ndarray, indices: Sequence[int]) -> tuple[np.ndarray, np.ndarray]:
-        # predicted
-        #   -1: not occluded
-        #   1: predicted
-        #   0: unable to predict
-        #   -2: no need to predict as marker is only for redundancy
-        # todo: During recordings data for marker prediction, this needs to be disabled
-        # return markers, np.array([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        """
+        predict marker position
+        :param              markers: array containing marker positions
+        :param              occluded: array containing if a marker is occluded
+        :param              indices: indices of markers that are to predict
+        :return:            marker array with if needed predicted marker positions
+                            array containing prediction typ:
+                                -2:     no need to predict as marker is only for redundancy
+                                -1:     predicted
+                                0:      unable to predict or occluded
+                                1:      not occluded
+        """
+        # todo: Kalman filter using last seen position
+        if self._collect_only:
+            return markers, (~occluded).astype(int)
         self._last_valid_position[~occluded] = markers[~occluded]
         self._last_seen = np.where(occluded, self._last_seen + 1, 0)
         self._initial_guess[~occluded] = markers[~occluded]
@@ -93,7 +116,7 @@ class _MarkerPrediction:
         predicted = []
         for i, occ in enumerate(occluded):
             if not occ:
-                predicted.append(-1)
+                predicted.append(1)
                 if indices and indices[0] == i:
                     del indices[0]
                 continue
@@ -105,11 +128,13 @@ class _MarkerPrediction:
             if any(occluded[bros]):
                 # unable to predict because bros are also occluded
                 predicted.append(0)
+                continue
             dists = self._mean_distances[i, :3]
             points = markers[bros, :]
             pred = self._triangulate(self._initial_guess[i], points, dists)
             markers[i] = pred
-            predicted.append(1)
+            self._initial_guess[i] = pred
+            predicted.append(-1)
         return markers, np.array(predicted)
 
     @staticmethod
@@ -139,17 +164,19 @@ def _unit_vector(vec: np.ndarray):
     return vec / np.linalg.norm(vec)
 
 
-def _calc_elbow_angle(shoulder: np.ndarray, elbow: np.ndarray, wrist: np.ndarray):
-    if any([x is None for x in [shoulder, elbow, wrist]]):
-        return
+def _calc_elbow_angle(
+        shoulder: np.ndarray, elbow: np.ndarray, wrist: np.ndarray) -> float:
+    # if any([x is None for x in [shoulder, elbow, wrist]]):
+    #     return
     vec_upper_arm = _unit_vector(shoulder - elbow)
     vec_lower_arm = _unit_vector(elbow - wrist)
     return np.degrees(np.arccos(np.clip(np.dot(vec_upper_arm, vec_lower_arm), -1.0, 1.0)))
 
 
-def _calc_wrist_angle(elbow: np.ndarray, wrist: np.ndarray, elbow_axis: np.ndarray, wrist_axis: np.ndarray):
-    if elbow is None or wrist is None:
-        return
+def _calc_wrist_angle(
+        elbow: np.ndarray, wrist: np.ndarray, elbow_axis: np.ndarray, wrist_axis: np.ndarray) -> float:
+    # if elbow is None or wrist is None:
+    #     return
     vec_lower_arm = _unit_vector(wrist - elbow)
     n1 = _unit_vector(np.cross(wrist_axis, vec_lower_arm))
     n2 = _unit_vector(np.cross(vec_lower_arm, elbow_axis))
@@ -239,7 +266,8 @@ class ViconMoCapMarker(_ViconMoCap):
                  path: os.PathLike or str,
                  start_recoding: asyncio.Event,
                  stop_recording: asyncio.Event,
-                 save_every: int = 20):
+                 save_every: int = 20,
+                 marker_predictor: _MarkerPrediction or None = None):
 
         super().__init__(
             True, False, cur_pos, stop_event,
@@ -258,8 +286,36 @@ class ViconMoCapMarker(_ViconMoCap):
                                 chunks=True)
         self._data_bundle: tuple[list[np.ndarray], list[np.ndarray]] = ([], [])
         self._save_setup()
-        self._marker_predictor = _MarkerPrediction.from_file_data("recordings/16-11-24--16-33-29/MoCap/marker.h5")
+        self._marker_predictor = marker_predictor
+        if marker_predictor is None:
+            self._marker_predictor = _MarkerPrediction.from_file()
+            pth = os.path.join(self._base_path, "marker_model")
+            print(pth)
+            os.makedirs(pth)
+            self._marker_predictor.save_model(pth)
+        #_MarkerPrediction.from_file_data("recordings/16-11-24--16-33-29/MoCap/marker.h5")
         # self._marker_predictor = _MarkerPrediction(np.array([1, 2, 3]), np.array([1]), np.array([1]))
+
+    @classmethod
+    def collect_only(cls,
+                     stop_event: asyncio.Event,
+                     path: os.PathLike or str,
+                     start_recoding: asyncio.Event,
+                     stop_recording: asyncio.Event,
+                     save_every: int = 20
+                     ):
+        marker_predictor = _MarkerPrediction(True)
+        return cls(deque((), maxlen=0),
+                   stop_event,
+                   path,
+                   start_recoding,
+                   stop_recording,
+                   save_every,
+                   marker_predictor=marker_predictor)
+
+    def save_marker_model(self):
+        mark_pred = _MarkerPrediction.from_file_data(self._marker_path)
+        mark_pred.save_model()
 
     def _save_setup(self):
         self._client.GetFrame()
@@ -291,7 +347,7 @@ class ViconMoCapMarker(_ViconMoCap):
                    ("mocap", "marker_prediction"))
         self._data_bundle = ([], [])
 
-    def _calc_angles(self) -> tuple[np.ndarray, np.ndarray, float, float]:
+    def _calc_angles(self) -> tuple[np.ndarray, np.ndarray, float or None, float or None]:
         # marker = dict()
         self._client.GetLabeledMarkers()
         positions, occluded = [], []
@@ -307,15 +363,18 @@ class ViconMoCapMarker(_ViconMoCap):
         # 6: WristO
         positions = np.array(positions)
         occluded = np.array(occluded)
-        marker, predicted = self._marker_predictor.predict(positions, occluded, (0, 1, 2, 4, 5, 6))
-
-        shoulder, _ = _get_joint(marker[0], marker[1])
-        elbow, elbow_axis = _get_joint(marker[2], marker[4])
-        wrist, wrist_axis = _get_joint(marker[5], marker[6])
-        return (marker,
-                predicted,
-                _calc_elbow_angle(shoulder, elbow, wrist),
-                _calc_wrist_angle(elbow, wrist, elbow_axis, wrist_axis))
+        indices = (0, 1, 2, 4, 5, 6)
+        marker, predicted = self._marker_predictor.predict(positions.copy(), occluded, indices)
+        if len(predicted) != 9:
+            print(len(predicted))
+        angles = (None, None)
+        if np.all(predicted[list(indices)] != 0):
+            shoulder, _ = _get_joint(marker[0], marker[1])
+            elbow, elbow_axis = _get_joint(marker[2], marker[4])
+            wrist, wrist_axis = _get_joint(marker[5], marker[6])
+            angles = (
+                _calc_elbow_angle(shoulder, elbow, wrist), _calc_wrist_angle(elbow, wrist, elbow_axis, wrist_axis))
+        return marker, predicted, angles[0], angles[1]
 
     def _update_queue(self, calculated_pos: tuple[float, float]):
         self._cur_pos.append((calculated_pos[0] - self._zero_pos[0], calculated_pos[1] - self._zero_pos[1]))
@@ -400,12 +459,18 @@ class ViconMoCapSegment(_ViconMoCap):
 
 
 if __name__ == "__main__":
-    path = "recordings/15-11-24--12-07-41/MoCap/marker.h5"
-    pth = "recordings/15-11-24--12-07-41/MoCap/marker.h5"
-    mp = _MarkerPrediction.from_file_data(pth)
-    _, m = utils.read_data(pth)
-    m = m[0]
-    mp.test(m)
+    mp = _MarkerPrediction.from_file_data("recordings/16-11-24--16-33-29/MoCap/marker.h5")
+    mp.save_model()
+
+    mp = _MarkerPrediction.from_file()
+    # *k, (pred, m) = utils.read_data(
+    #     # "recordings/16-11-24--16-33-29/MoCap/marker.h5"
+    #     "recordings/16-11-24--16-34-31/MoCap/marker.h5"
+    # )
+    # # print(pred)
+    # x = np.all(pred == -1, axis=1)
+    # # print(np.where(x[1:] != x[:-1])[0])
+    # mp.test(m[:94])
 
 
 

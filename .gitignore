@@ -164,3 +164,4 @@ cython_debug/
 data/
 delsys_secrets.py
 recordings/
+marker_model/

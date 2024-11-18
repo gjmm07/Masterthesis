@@ -38,6 +38,8 @@ class EMGRecorder(Process):
     @staticmethod
     def _save_data(
             data: list[list[float]], sensors: list[str], channels: list[list[str]], paths: list[os.PathLike or str]):
+        if not all(data):
+            return
         data = iter([np.array(x) for x in data])
         for sensor, sen_channels, path in zip(sensors, channels, paths):
             for channel in sen_channels:
