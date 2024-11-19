@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 from vicon_dssdk import ViconDataStream
 from itertools import count
-from ViconMoCap import _get_joint, _unit_vector
+from ViconMoCap import get_joint, _unit_vector
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 
@@ -11,9 +11,9 @@ client = ViconDataStream.Client()
 client.Connect('localhost')
 
 def calc_elbow_angle(marker: dict):
-    shoulder, _ = _get_joint(marker["ShoulderB"], marker["ShoulderF"])
-    elbow, _ = _get_joint(marker["ElbowO"], marker["ElbowI"])
-    wrist, _ = _get_joint(marker["WristI"], marker["WristO"])
+    shoulder, _ = get_joint(marker["ShoulderB"], marker["ShoulderF"])
+    elbow, _ = get_joint(marker["ElbowO"], marker["ElbowI"])
+    wrist, _ = get_joint(marker["WristI"], marker["WristO"])
     if any([x is None for x in [shoulder, elbow, wrist]]):
         return
     vec_upper_arm = _unit_vector(shoulder - elbow)
@@ -21,8 +21,8 @@ def calc_elbow_angle(marker: dict):
     return np.degrees(np.arccos(np.clip(np.dot(vec_upper_arm, vec_lower_arm), -1.0, 1.0)))
 
 def calc_wrist_angle(marker: dict):
-    elbow, elbow_rot_axis = _get_joint(marker["ElbowO"], marker["ElbowI"])
-    wrist, wrist_rot_axis = _get_joint(marker["WristI"], marker["WristO"])
+    elbow, elbow_rot_axis = get_joint(marker["ElbowO"], marker["ElbowI"])
+    wrist, wrist_rot_axis = get_joint(marker["WristI"], marker["WristO"])
     if elbow is not None and wrist is not None:
         vec_lower_arm = _unit_vector(elbow - wrist)
         n1 = _unit_vector(np.cross(vec_lower_arm, wrist_rot_axis))

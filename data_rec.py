@@ -1,7 +1,6 @@
 from asyncio import gather
 from collections import deque
 from typing import Optional
-
 import cv2
 from pynput import keyboard
 import asyncio
@@ -79,8 +78,8 @@ class _DataRecorder:
         self._save_name()
 
     def _save_name(self):
-        with open(os.path.join(self._path, "name.txt"), "w") as file:
-            file.write(SUBJECT)
+        with open(os.path.join(self._path, "info.txt"), "w") as file:
+            file.write(f"{SUBJECT}\n")
 
     async def _keyboard_input(self):
         loop = asyncio.get_event_loop()
@@ -114,6 +113,11 @@ class InitMoCap(_DataRecorder):
         self._hum_pose_est = ViconMoCapMarker.collect_only(
             self._stop_event, self._path, self._start_rec, self._stop_rec
         )
+        self._append_info()
+
+    def _append_info(self):
+        with open(os.path.join(self._path, "info.txt"), "a") as file:
+            file.write("init mocap\n")
 
     async def main(self):
         tasks = (self._hum_pose_est.run(),

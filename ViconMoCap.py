@@ -148,14 +148,14 @@ class _MarkerPrediction:
         return sol.x
 
 
-def _get_joint(
+def get_joint(
         point_a: np.ndarray,
         point_b: np.ndarray) -> tuple[np.ndarray, ...] | tuple[None, None]:
     """
     Gets the joint center position (x, y, z) as well as the axis of rotation vec[dim=3] from a single joint
     :param point_a: first marker position belonging to the joint
     :param point_b: second marker position belonging to the same join
-    :return: tuple
+    :return: tuple center and rot axis
     """
     rot_axis = np.array(point_b) - np.array(point_a)
     return np.array(point_a) + (np.array(point_b) - np.array(point_a)) * 0.5, _unit_vector(rot_axis)
@@ -221,6 +221,11 @@ class _ViconMoCap:
                                 maxshape=(None, 2),
                                 dtype="float32",
                                 chunks=True)
+
+    def _save_zero_pos(self):
+        with open(os.path.join(self._base_path, "setup.txt"), "a+") as file:
+            file.write("### Zero Position\n")
+            file.write(f"{self._zero_pos}\n")
 
     async def set_zero(self, delay: float = 0.0, direction: bool = False):
         await asyncio.sleep(delay)
@@ -321,6 +326,7 @@ class ViconMoCapMarker(_ViconMoCap):
         self._client.GetFrame()
         with open(os.path.join(self._base_path, "setup.txt"), "w") as file:
             for subject in self._client.GetSubjectNames():
+                file.write("### Subject\n")
                 file.write(subject + "\n")
                 file.write("### Markers\n")
                 for marker in self._client.GetMarkerNames(subject):
@@ -369,15 +375,12 @@ class ViconMoCapMarker(_ViconMoCap):
             print(len(predicted))
         angles = (None, None)
         if np.all(predicted[list(indices)] != 0):
-            shoulder, _ = _get_joint(marker[0], marker[1])
-            elbow, elbow_axis = _get_joint(marker[2], marker[4])
-            wrist, wrist_axis = _get_joint(marker[5], marker[6])
+            shoulder, _ = get_joint(marker[0], marker[1])
+            elbow, elbow_axis = get_joint(marker[2], marker[4])
+            wrist, wrist_axis = get_joint(marker[5], marker[6])
             angles = (
                 _calc_elbow_angle(shoulder, elbow, wrist), _calc_wrist_angle(elbow, wrist, elbow_axis, wrist_axis))
         return marker, predicted, angles[0], angles[1]
-
-    def _update_queue(self, calculated_pos: tuple[float, float]):
-        self._cur_pos.append((calculated_pos[0] - self._zero_pos[0], calculated_pos[1] - self._zero_pos[1]))
 
     async def _save_manager_marker(self, queue: asyncio.Queue[tuple[np.ndarray, np.ndarray]]):
         await self._start_recording.wait()
@@ -406,11 +409,12 @@ class ViconMoCapMarker(_ViconMoCap):
             if not self._client.GetFrame():
                 continue
             marker, predicted, *calc_pos = self._calc_angles()
+            calc_pos = calc_pos[0] - self._zero_pos[0], calc_pos[1] - self._zero_pos[1]
             if self._start_recording.is_set() and not self._stop_recording.is_set():
                 await marker_queue.put((marker, predicted))
                 await joint_queue.put(calc_pos)
             if not any((x is None for x in calc_pos)):
-                self._update_queue(calc_pos)
+                self._cur_pos.append(calc_pos)
 
     async def run(self):
         marker_que: asyncio.Queue[tuple[np.ndarray, np.ndarray]] = asyncio.Queue()
