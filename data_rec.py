@@ -1,6 +1,6 @@
 from asyncio import gather
 from collections import deque
-from typing import Optional
+from typing import Optional, Sequence
 import cv2
 from pynput import keyboard
 import asyncio
@@ -70,7 +70,7 @@ def transmit_keys(loop: asyncio.AbstractEventLoop):
 
 class _DataRecorder:
 
-    def __init__(self, stop_event: asyncio.Event, pipeline: tuple):
+    def __init__(self, stop_event: asyncio.Event, pipeline: Sequence):
         self._stop_event: asyncio.Event = stop_event
         self._pipeline = iter(pipeline)
         self._next_state = next(self._pipeline)
@@ -151,8 +151,14 @@ class DataRecorderManager(_DataRecorder):
 
     def __init__(self):
         self._stop_event: asyncio.Event = asyncio.Event()
+        pipeline = []
+        if INCLUDE_MOCAP:
+            pipeline.append(self._set_zero)
+        if INCLUDE_ORT and INCLUDE_MOCAP:
+            pipeline.append(self._sync_ort)
+        pipeline += [self._start_rec_data, self._stop_rec_data, None]
         super().__init__(self._stop_event,
-                         (self._set_zero, self._sync_ort, self._start_rec_data, self._stop_rec_data, None))
+                         pipeline)
         self._cur_pos: deque[tuple[float, float]] = deque(maxlen=1)
         self._start_rec: asyncio.Event = asyncio.Event()
         self._stop_rec: asyncio.Event = asyncio.Event()
@@ -177,10 +183,13 @@ class DataRecorderManager(_DataRecorder):
             self._ort_queue: asyncio.Queue[tuple[float | None, ...]] = asyncio.Queue(maxsize=1)
 
     async def main(self):
+        if not any((INCLUDE_ORT, INCLUDE_EMG, INCLUDE_MOCAP)):
+            return
         tasks = [
-            self._hum_pose_est.run(),
             self._keyboard_input(),
         ]
+        if INCLUDE_MOCAP:
+            tasks.append(self._hum_pose_est.run())
         if INCLUDE_ORT:
             tasks += [self._ort_controller.connect_device(),
                       self._ort_controller.start_background_tasks(self._ort_queue),

@@ -1,19 +1,24 @@
+from typing import Literal
 import matplotlib.pyplot as plt
 import numpy as np
 import utils
 import os
 from ViconMoCap import get_joint
+from itertools import cycle, chain
+import warnings
 
-
-def read_mocap(base_path: os.PathLike or str):
+def read_mocap_marker(base_path: os.PathLike or str):
     path = os.path.join(base_path, "Mocap")
-    joint_data = utils.read_data(os.path.join(path, "joint_data.h5"))
-    marker_data = utils.read_data(os.path.join(path, "marker.h5"))
-    return joint_data, marker_data
+    return utils.read_data(os.path.join(path, "marker.h5"))
+
+
+def read_mocap_joints(base_path: os.PathLike or str):
+    path = os.path.join(base_path, "Mocap")
+    return utils.read_data(os.path.join(path, "joint_data.h5"))
 
 
 def read_ort_data(base_path: os.PathLike or str):
-    return utils.read_data(os.path.join(base_path, "Ort_data", "data.h5"))
+    return dict(reversed(list(utils.read_data(os.path.join(base_path, "Ort_data", "data.h5")).items())))
 
 
 def read_emg_data(base_path: os.PathLike or str):
@@ -44,39 +49,86 @@ def read_mocap_setup(base_path: os.PathLike or str):
                     pass
     return info
 
-def plot_dataset(path):
-    joint_data, _ = read_mocap(path)
-    ort_data = read_ort_data(path)
-    emg_data = read_emg_data(path)
-    fig, axs = plt.subplots(2 + len(emg_data), 1, sharex=True)
-    time = joint_data["joints"].shape[0] / 100
-    plt.xlabel("Time")
-    axs[0].plot(np.tile(
-        np.linspace(
-            0, time, joint_data["joints"].shape[0]), (2, 1)).T,
-        joint_data["joints"], label=("upper arm", "lower arm"))
-    axs[0].legend()
-    axs[0].set_ylabel("MoCap Angle [deg]")
-    axs[1].plot(np.linspace(0, time, ort_data["angle_upper_arm"].shape[0]),
-                ort_data["angle_upper_arm"], label="upper arm")
-    axs[1].plot(np.linspace(0, time, ort_data["angle_lower_arm"].shape[0]),
-                ort_data["angle_lower_arm"], label="lower arm")
-    axs[1].legend()
-    axs[1].set_ylabel("Ort Angle [deg]")
-    for i, (sensor, chan_data) in enumerate(emg_data.items()):
-        for offset, (chan, data) in enumerate(chan_data.items()):
-            if "emg" in chan.lower():
-                axs[2 + i].plot(np.linspace(0, time, data.shape[0]),
-                                data + offset, lw=0.2, label=chan)
-                axs[2 + i].set_ylabel(f"{sensor} [mV]")
-                axs[2 + i].legend()
+def plot_joints(yname, joint_data, ax: plt.Axes, time: int or None):
+    for name, data in joint_data.items():
+        if time is None:
+            time = 1
+        ax.plot(np.linspace(
+                0, time, data.shape[0]),
+                data, label=name)
+    ax.legend()
+    ax.set_ylabel(yname)
+
+
+def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
+    for offset, (chan, data) in enumerate(chan_data.items()):
+        if time is None:
+            # todo: fix this
+            time = 1
+        print(np.mean(data))
+        ax.plot(np.linspace(0, time, data.shape[0]),
+                data + (offset / (len(chan_data)- 1)), lw=0.2, label=chan)
+        ax.set_ylabel(f"{sensor} [mV]")
+        ax.legend()
+
+
+def get_joints(path: os.PathLike or str):
+    return (("MoCap Joints [deg]", ),
+            (dict(zip(("upper arm", "lower arm"), read_mocap_joints(path)["joints"].T)), ))
+
+
+def get_ort_joints(path: os.PathLike or str):
+    data = read_ort_data(path)
+    data.pop("load_cell")
+    return ("Ort Joints [deg]", ), (data, )
+
+
+def get_emg_data(path: os.PathLike or str):
+    data = []
+    read_data = read_emg_data(path)
+    for sensor_name, sensor_data in read_data.items():
+        emg_chan_data = {}
+        for chan_name, chan_data in sensor_data.items():
+            if "emg" in chan_name.lower():
+                print(chan_name)
+                emg_chan_data[chan_name] = chan_data
+        data.append(emg_chan_data)
+    return tuple(read_data.keys()), data
+
+
+def plot_dataset(path, to_plot: tuple[bool, bool, bool]):
+    if not to_plot[0]:
+        warnings.warn("If Mocap data is not plotted, y axis will be set to samples")
+    to_plot = cycle(to_plot)
+    funcs = (get_joints, get_ort_joints, get_emg_data)
+    plot_names, data = [], []
+    for func, tp in zip(funcs, to_plot):
+        if tp:
+            plot_name, read_data = func(path)
+            plot_names += plot_name
+            data += read_data
+    fig, axs = plt.subplots(len(plot_names), 1)
+    info = iter(zip(axs.flatten(), plot_names, data))
+    time = None
+    if next(to_plot):
+        # joint_data = next(data)
+        ax, name, joint_data = next(info)
+        time = time = joint_data["upper arm"].shape[0] / 100
+        plot_joints(name, joint_data, ax, time)
+    if next(to_plot):
+        # ort_data = next(data)
+        ax, name, ort_data = next(info)
+        plot_joints(name, ort_data, ax, time)
+    if next(to_plot):
+        for ax, name, emg_data in info:
+            plot_emg(name, emg_data, ax, time)
     plt.show()
 
 
 def plot_markers(path: os.PathLike or str):
     marker_names = [x[0] for x in read_mocap_setup(path)["Markers"]]
     print(marker_names)
-    _, data = read_mocap(path)
+    data = read_mocap_marker(path)
     markers = data["mocap"]
     predicted = data["marker_prediction"]
     markers = markers - markers[0, 0, :]
@@ -101,5 +153,6 @@ def plot_markers(path: os.PathLike or str):
 
 
 if __name__ == "__main__":
-    plot_dataset("recordings/18-11-24--17-42-35")
+    # print(get_emg_data("recordings/18-11-24--17-42-35"))
+    plot_dataset("recordings/20-11-24--16-44-53", (False, False, True))
     # plot_markers("recordings/18-11-24--17-42-35")

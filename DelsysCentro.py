@@ -20,6 +20,8 @@ _STICKER_LOOKUP = {"000132f0-0010-0000-0000-000000000000": 1,
                    "00013094-001b-0000-0000-000000000000": 3,
                    "0001391a-000e-0000-0000-000000000000": 5}
 
+_APPLY_FILTER = True
+
 class _DelsysFilter:
     """
     Remove DC-Offset from data
@@ -37,8 +39,8 @@ class _DelsysFilter:
 
     def highpass_filter(self, data_bundle: list[list[float]]) -> list[list[float]]:
         results = []
-        for data, butter_parm, z in zip(data_bundle, self._butter_params, self._z_butter):
-            res, z = sosfilt(butter_parm, data, zi=z)
+        for i, (data, butter_parm) in enumerate(zip(data_bundle, self._butter_params)):
+            res, self._z_butter[i] = sosfilt(butter_parm, data, zi=self._z_butter[i])
             results.append(list(res))
         if self._counter < 30:
             self._counter += 1
@@ -48,7 +50,9 @@ class _DelsysFilter:
 
     @property
     def is_ready(self):
-        return self._ready
+        if _APPLY_FILTER:
+            return self._ready
+        return True
 
 
 class DelsysCentro:
@@ -154,10 +158,8 @@ class DelsysCentro:
             data = []
             for emg_key in self._keys:
                 data.append(list(raw_data[emg_key]))
-            try:
-                data = self._filters.highpass_filter(data)
-            except Exception as e:
-                print(e)
+            if _APPLY_FILTER:
+                return self._filters.highpass_filter(data)
             return data
 
     def _start_station(self):

@@ -48,8 +48,7 @@ class _MarkerPrediction:
 
     @classmethod
     def from_file_data(cls, path: os.PathLike or str):
-        keys, marker_pos = utils.read_data(path)
-        marker_pos = marker_pos[keys.index("mocap")]
+        marker_pos = utils.read_data(path)["mocap"]
         mask = _mask_occluded_samples(marker_pos)
         min_frames = 100
         if np.sum(mask) < min_frames:
@@ -371,8 +370,6 @@ class ViconMoCapMarker(_ViconMoCap):
         occluded = np.array(occluded)
         indices = (0, 1, 2, 4, 5, 6)
         marker, predicted = self._marker_predictor.predict(positions.copy(), occluded, indices)
-        if len(predicted) != 9:
-            print(len(predicted))
         angles = (None, None)
         if np.all(predicted[list(indices)] != 0):
             shoulder, _ = get_joint(marker[0], marker[1])
@@ -409,12 +406,13 @@ class ViconMoCapMarker(_ViconMoCap):
             if not self._client.GetFrame():
                 continue
             marker, predicted, *calc_pos = self._calc_angles()
-            calc_pos = calc_pos[0] - self._zero_pos[0], calc_pos[1] - self._zero_pos[1]
+            if not any((x is None for x in calc_pos)):
+                calc_pos = calc_pos[0] - self._zero_pos[0], calc_pos[1] - self._zero_pos[1]
+                self._cur_pos.append(calc_pos)
             if self._start_recording.is_set() and not self._stop_recording.is_set():
                 await marker_queue.put((marker, predicted))
                 await joint_queue.put(calc_pos)
-            if not any((x is None for x in calc_pos)):
-                self._cur_pos.append(calc_pos)
+
 
     async def run(self):
         marker_que: asyncio.Queue[tuple[np.ndarray, np.ndarray]] = asyncio.Queue()
