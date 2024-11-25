@@ -1,12 +1,14 @@
 import os
-from PIL.ImagePalette import random
-from vicon_dssdk import ViconDataStream
+try:
+    from vicon_dssdk import ViconDataStream
+except ImportError:
+    pass
 from collections import deque
 import asyncio
 import numpy as np
 import h5py
 import utils
-from scipy.optimize import root, minimize
+from scipy.optimize import root
 from typing import Sequence, Optional
 
 
@@ -163,16 +165,17 @@ def _unit_vector(vec: np.ndarray):
     return vec / np.linalg.norm(vec)
 
 
-def _calc_elbow_angle(
+def calc_elbow_angle(
         shoulder: np.ndarray, elbow: np.ndarray, wrist: np.ndarray) -> float:
     # if any([x is None for x in [shoulder, elbow, wrist]]):
     #     return
+    # todo: check the impact of elbow - wrist and wrist - elbow
     vec_upper_arm = _unit_vector(shoulder - elbow)
     vec_lower_arm = _unit_vector(elbow - wrist)
     return np.degrees(np.arccos(np.clip(np.dot(vec_upper_arm, vec_lower_arm), -1.0, 1.0)))
 
 
-def _calc_wrist_angle(
+def calc_wrist_angle(
         elbow: np.ndarray, wrist: np.ndarray, elbow_axis: np.ndarray, wrist_axis: np.ndarray) -> float:
     # if elbow is None or wrist is None:
     #     return
@@ -376,7 +379,7 @@ class ViconMoCapMarker(_ViconMoCap):
             elbow, elbow_axis = get_joint(marker[2], marker[4])
             wrist, wrist_axis = get_joint(marker[5], marker[6])
             angles = (
-                _calc_elbow_angle(shoulder, elbow, wrist), _calc_wrist_angle(elbow, wrist, elbow_axis, wrist_axis))
+                calc_elbow_angle(shoulder, elbow, wrist), calc_wrist_angle(elbow, wrist, elbow_axis, wrist_axis))
         return marker, predicted, angles[0], angles[1]
 
     async def _save_manager_marker(self, queue: asyncio.Queue[tuple[np.ndarray, np.ndarray]]):
