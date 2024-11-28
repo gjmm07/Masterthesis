@@ -53,6 +53,8 @@ class EMGRecorder(Process):
         with DelsysCentro() as dcentro:
             if dcentro is None:
                 return
+            dcentro.scan()
+            dcentro.start_station()
             sensors, channels = dcentro.sensors, dcentro.channels
             paths = self._create_paths(sensors, channels)
             dcentro.save_sensor_setup(self._base_path)

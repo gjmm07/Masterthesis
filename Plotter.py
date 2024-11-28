@@ -47,7 +47,7 @@ def read_mocap_setup(base_path: os.PathLike or str):
                     info[key].append(eval(line))
                 except NameError:
                     info[key].append(line.strip())
-                except KeyError:
+                except (KeyError, SyntaxError):
                     pass
     return info
 
@@ -109,7 +109,8 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool]):
             plot_name, read_data = func(path)
             plot_names += plot_name
             data += read_data
-    fig, axs = plt.subplots(len(plot_names), 1)
+    fig, axs = plt.subplots(len(plot_names), 1, squeeze=False)
+    print(axs)
     info = iter(zip(axs.flatten(), plot_names, data))
     time = None
     if next(to_plot):
@@ -231,5 +232,5 @@ def plot_markers(path: os.PathLike or str):
 
 if __name__ == "__main__":
     # print(get_emg_data("recordings/18-11-24--17-42-35"))
-    # plot_dataset("recordings/20-11-24--16-26-08", (True, True, True))
-    plot_markers("recordings/20-11-24--16-26-08")
+    plot_dataset("recordings/28-11-24--18-08-57", (True, False, True))
+    # plot_markers("recordings/20-11-24--16-26-08")

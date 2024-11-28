@@ -42,7 +42,7 @@ except ModuleNotFoundError:
     has_vicon = False
 
 
-INCLUDE_ORT = True
+INCLUDE_ORT = False
 INCLUDE_EMG = True
 INCLUDE_MOCAP = True
 SUBJECT = "Finn"
@@ -219,6 +219,17 @@ class DataRecorderManager(_DataRecorder):
         self._next_state = next(self._pipeline)
         asyncio.ensure_future(sync_ort())
 
+    def _delay(self, delay: int, func, *args):
+        async def wait():
+            i = 0
+            while not self._stop_event.is_set():
+                await asyncio.sleep(1)
+                if i == delay:
+                    break
+                i += 1
+            func(*args)
+        asyncio.ensure_future(wait())
+
     def _start_rec_data(self):
         if not self._emg_recorder.is_ready and INCLUDE_EMG:
             print("not ready for recording")
@@ -227,6 +238,7 @@ class DataRecorderManager(_DataRecorder):
         self._emg_recorder.start_recording()
         self._start_rec.set()
         self._next_state = next(self._pipeline)
+        self._delay(300, self._stop_rec_data)
 
     def _stop_rec_data(self):
         print("stop rec data")

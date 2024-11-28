@@ -18,7 +18,8 @@ from DelsysAPI.Components import TrignoRf
 _STICKER_LOOKUP = {"000132f0-0010-0000-0000-000000000000": 1,
                    "00013120-001b-0000-0000-000000000000": 2,
                    "00013094-001b-0000-0000-000000000000": 3,
-                   "0001391a-000e-0000-0000-000000000000": 5}
+                   "0001391a-000e-0000-0000-000000000000": 5,
+                   "000131ab-0010-0000-0000-000000000000": 3}
 
 _APPLY_FILTER = True
 
@@ -90,7 +91,13 @@ class DelsysCentro:
                 for channel in sensor.TrignoChannels:
                     file.write(f"\t{channel.Name} using {channel.SampleRate} Hz \n")
 
-    def _scan(self):
+    def pair_sensor(self):
+        self._base.PairSensor()
+        while self._base.CheckPairStatus():
+            continue
+        print()
+
+    def scan(self):
         _ = self._base.ScanSensors().Result
         self._sensors = self._base.GetScannedSensorsFound()
         for sensor in self._sensors:
@@ -162,7 +169,7 @@ class DelsysCentro:
                 return self._filters.highpass_filter(data)
             return data
 
-    def _start_station(self):
+    def start_station(self):
         if self._get_pipeline_state() == "Connected":
             self._base.Configure()
         self._base.Start()
@@ -180,8 +187,6 @@ class DelsysCentro:
     def __enter__(self):
         if not self._connect():
             return
-        self._scan()
-        self._start_station()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -189,7 +194,8 @@ class DelsysCentro:
         self._stop_station()
 
 if __name__ == "__main__":
-    pass
+    with DelsysCentro() as dcentro:
+        dcentro.pair_sensor()
 
 
 

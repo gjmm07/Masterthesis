@@ -185,6 +185,8 @@ def calc_wrist_angle(
     theta = np.degrees(np.arccos(np.clip(np.dot(n1, n2), -1.0, 1.0)))
     return theta
 
+_SUBJECT_NAME = "XArm"
+
 class _ViconMoCap:
 
     def __init__(self,
@@ -359,8 +361,8 @@ class ViconMoCapMarker(_ViconMoCap):
         # marker = dict()
         self._client.GetLabeledMarkers()
         positions, occluded = [], []
-        for name, parent in self._client.GetMarkerNames("XArm"):
-            pos, occ = self._client.GetMarkerGlobalTranslation("XArm", name)
+        for name, parent in self._client.GetMarkerNames(_SUBJECT_NAME):
+            pos, occ = self._client.GetMarkerGlobalTranslation(_SUBJECT_NAME, name)
             positions.append(pos)
             occluded.append(occ)
         # 0: ShoulderB
