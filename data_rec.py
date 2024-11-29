@@ -2,6 +2,7 @@ from asyncio import gather
 from collections import deque
 from typing import Optional, Sequence
 import cv2
+from tqdm import tqdm
 from pynput import keyboard
 import asyncio
 import numpy as np
@@ -42,7 +43,7 @@ except ModuleNotFoundError:
     has_vicon = False
 
 
-INCLUDE_ORT = False
+INCLUDE_ORT = True
 INCLUDE_EMG = True
 INCLUDE_MOCAP = True
 SUBJECT = "Finn"
@@ -221,12 +222,11 @@ class DataRecorderManager(_DataRecorder):
 
     def _delay(self, delay: int, func, *args):
         async def wait():
-            i = 0
-            while not self._stop_event.is_set():
+            await asyncio.sleep(0.1)
+            for i in tqdm(range(delay), leave=False):
                 await asyncio.sleep(1)
-                if i == delay:
+                if self._stop_event.is_set():
                     break
-                i += 1
             func(*args)
         asyncio.ensure_future(wait())
 

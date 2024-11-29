@@ -198,11 +198,20 @@ def _output_tikz(fig):
     tikzplotlib.save("test.tex")
 
 
-def plot_markers(path: os.PathLike or str):
+def _read_markers(path: os.PathLike or str):
     marker_names = [x[0] for x in read_mocap_setup(path)["Markers"]]
     data = read_mocap_marker(path)
     markers = data["mocap"]
     predicted = data["marker_prediction"]
+    return marker_names, markers, predicted
+
+
+def plot_marker_prediction(path: os.PathLike or str):
+    pass
+
+
+def plot_markers(path: os.PathLike or str):
+    marker_names, markers, predicted = _read_markers(path)
     markers = markers - markers[0, 0, :]
     markers = markers[10:20]
     print(np.all(predicted[10:20] == 1))
@@ -232,5 +241,5 @@ def plot_markers(path: os.PathLike or str):
 
 if __name__ == "__main__":
     # print(get_emg_data("recordings/18-11-24--17-42-35"))
-    plot_dataset("recordings/28-11-24--18-08-57", (True, False, True))
+    plot_dataset("recordings/29-11-24--17-56-43", (True, True, True))
     # plot_markers("recordings/20-11-24--16-26-08")
