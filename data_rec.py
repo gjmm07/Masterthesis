@@ -43,7 +43,7 @@ except ModuleNotFoundError:
     has_vicon = False
 
 
-INCLUDE_ORT = True
+INCLUDE_ORT = False
 INCLUDE_EMG = True
 INCLUDE_MOCAP = True
 SUBJECT = "Finn"
