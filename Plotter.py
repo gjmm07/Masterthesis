@@ -72,7 +72,9 @@ def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
     for offset, data in enumerate(chan_data.values()):
         if not offset:
             plot_data.append(np.atleast_2d(np.linspace(0, time, data.shape[0])).T)
-        plot_data.append(data + (offset / (len(chan_data)- 1)))
+        plot_data.append(data + (offset / (len(chan_data) - 1)))
+        # todo: Fix if only one channel at any sensor
+        # plot_data.append(data)
     plot_data = np.hstack(plot_data)
     ax.plot(plot_data[:, 0], plot_data[:, 1:], lw=0.2, label=chan_data.keys())
     ax.set_ylabel(f"{sensor} [mV]")
@@ -136,7 +138,7 @@ def get_emg_data(path: os.PathLike or str):
 def _export_txt(filename: str, array: np.ndarray, *args, **kwargs):
     array = array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
     array[:, 0] -= array[0, 0]
-    np.savetxt(filename, array, *args, **kwargs)
+    np.savetxt(filename, array, *args, **kwargs, fmt="%f", delimiter=",")
 
 
 def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = False):
@@ -146,7 +148,7 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
     funcs = (get_joints,
              get_ort_joints,
              lambda p: get_markers(p,
-                                   "ElbowO", "WristI"
+                                   # "ElbowO", "WristI"
                                    ),
              get_emg_data)
     plot_names, data, ns = [], [], []
@@ -299,5 +301,5 @@ def plot_markers3d(path: os.PathLike or str):
 
 if __name__ == "__main__":
     # print(get_emg_data("recordings/18-11-24--17-42-35"))
-    plot_dataset("recordings/03-12-24--18-46-14", (True, False, False, True))
+    plot_dataset("recordings/04-12-24--14-06-58", (False, False, False, True))
     # plot_markers("recordings/20-11-24--16-26-08")

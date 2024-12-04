@@ -43,8 +43,8 @@ except ModuleNotFoundError:
     has_vicon = False
 
 
-INCLUDE_ORT = False
-INCLUDE_EMG = True
+INCLUDE_ORT = True
+INCLUDE_EMG = False
 INCLUDE_MOCAP = True
 SUBJECT = "Finn"
 
@@ -238,7 +238,7 @@ class DataRecorderManager(_DataRecorder):
         self._emg_recorder.start_recording()
         self._start_rec.set()
         self._next_state = next(self._pipeline)
-        self._delay(300, self._stop_rec_data)
+        self._delay(60, self._stop_rec_data)
 
     def _stop_rec_data(self):
         print("stop rec data")

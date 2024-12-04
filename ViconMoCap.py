@@ -10,6 +10,7 @@ import h5py
 import utils
 from scipy.optimize import root
 from typing import Sequence, Optional
+from enum import Enum
 
 
 def _get_brother_markers(markers: np.ndarray):
@@ -269,6 +270,7 @@ class _ViconMoCap:
 
 class ViconMoCapMarker(_ViconMoCap):
 
+    _MARKER_NAMES = ["ShoulderB", "ShoulderF", "ElbowO", "ElbowI", "WristI", "WristO"]
     def __init__(self,
                  cur_pos: deque[tuple[float, float]],
                  stop_event: asyncio.Event,
@@ -282,19 +284,8 @@ class ViconMoCapMarker(_ViconMoCap):
             True, False, cur_pos, stop_event,
             path, start_recoding, stop_recording, save_every)
         self._marker_path = os.path.join(self._base_path, "marker.h5")
-        with h5py.File(self._marker_path, "w") as file:
-            file.create_dataset("mocap",
-                                shape=(0, 9, 3),
-                                maxshape=(None, 9, 3),
-                                dtype="float32",
-                                chunks=True)
-            file.create_dataset("marker_prediction",
-                                shape=(0, 9),
-                                maxshape=(None, 9),
-                                dtype="int",
-                                chunks=True)
         self._data_bundle: tuple[list[np.ndarray], list[np.ndarray]] = ([], [])
-        self._save_setup()
+        self._marker_indices = self._save_setup()
         self._marker_predictor = marker_predictor
         if marker_predictor is None:
             self._marker_predictor = _MarkerPrediction.from_file()
@@ -333,11 +324,26 @@ class ViconMoCapMarker(_ViconMoCap):
                 file.write("### Subject\n")
                 file.write(subject + "\n")
                 file.write("### Markers\n")
-                for marker in self._client.GetMarkerNames(subject):
+                markers = self._client.GetMarkerNames(subject)
+                for marker in markers:
                     file.write(f"\t{marker}\n")
                 file.write("### Segments\n")
                 for segment in self._client.GetSegmentNames(subject):
                     file.write(f"\t {segment}\n")
+        markers = [x[0] for x in markers]
+        with h5py.File(self._marker_path, "w") as file:
+            file.create_dataset("mocap",
+                                shape=(0, len(markers), 3),
+                                maxshape=(None, len(markers), 3),
+                                dtype="float32",
+                                chunks=True)
+            file.create_dataset("marker_prediction",
+                                shape=(0, len(markers)),
+                                maxshape=(None, len(markers)),
+                                dtype="int",
+                                chunks=True)
+        return Enum("marker_idx",
+                    list(zip(ViconMoCapMarker._MARKER_NAMES, [markers.index(x) for x in ViconMoCapMarker._MARKER_NAMES])))
 
     def _get_empty_bundle(self) -> dict:
         raise DeprecationWarning("Should not be used anymore")
@@ -373,13 +379,19 @@ class ViconMoCapMarker(_ViconMoCap):
         # 6: WristO
         positions = np.array(positions)
         occluded = np.array(occluded)
-        indices = (0, 1, 2, 4, 5, 6)
+        # indices = (0, 1, 2, 4, 5, 6)
+        indices = [e.value for e in self._marker_indices]
         marker, predicted = self._marker_predictor.predict(positions.copy(), occluded, indices)
         angles = (None, None)
-        if np.all(predicted[list(indices)] != 0):
-            shoulder, _ = get_joint(marker[0], marker[1])
-            elbow, elbow_axis = get_joint(marker[2], marker[4])
-            wrist, wrist_axis = get_joint(marker[5], marker[6])
+        if np.all(predicted[indices] != 0):
+            shoulder, _ = get_joint(
+                marker[self._marker_indices.ShoulderB.value], marker[self._marker_indices.ShoulderF.value]
+            )
+            elbow, elbow_axis = get_joint(
+                marker[self._marker_indices.ElbowO.value], marker[self._marker_indices.ElbowI.value]
+            )
+            wrist, wrist_axis = get_joint(
+                marker[self._marker_indices.WristI.value], marker[self._marker_indices.WristO.value])
             angles = (
                 calc_elbow_angle(shoulder, elbow, wrist), calc_wrist_angle(elbow, wrist, elbow_axis, wrist_axis))
         return marker, predicted, angles[0], angles[1]
