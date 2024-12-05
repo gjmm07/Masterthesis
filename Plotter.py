@@ -8,7 +8,8 @@ from itertools import cycle, chain
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import warnings
 
-EXPORT_TIME = (60, 120)
+EXPORT_TIME = (190, 250)
+_SAVE_PATH = "/home/finn/Documents/LatexMA/data/"
 
 
 def read_mocap_marker(base_path: os.PathLike or str):
@@ -78,7 +79,7 @@ def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
     for offset, data in enumerate(chan_data.values()):
         if not offset:
             plot_data.append(np.atleast_2d(np.linspace(0, time, data.shape[0])).T)
-        plot_data.append(data + (offset / (len(chan_data) - 1)))
+        plot_data.append(data + offset * 0.2)
         # todo: Fix if only one channel at any sensor
         # plot_data.append(data)
     plot_data = np.hstack(plot_data)
@@ -144,7 +145,7 @@ def get_emg_data(path: os.PathLike or str):
 def _export_txt(filename: str, array: np.ndarray, *args, **kwargs):
     array = array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
     array[:, 0] -= array[0, 0]
-    np.savetxt(filename, array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
+    np.savetxt(os.path.join(_SAVE_PATH, filename), array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
 
 
 def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = True):
@@ -197,7 +198,7 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
             ax, name, emg_data = next(info)
             p_data = plot_emg(name, emg_data, ax, time)
             if export_csvs:
-                p_data = p_data[::3, :]
+                p_data = p_data[::50, :]
                 print(p_data.shape)
                 # (666900, 5)
                 _export_txt(name, p_data, header="t, a, b, c, d")
@@ -312,5 +313,5 @@ def plot_markers3d(path: os.PathLike or str):
 
 if __name__ == "__main__":
     # print(get_emg_data("recordings/18-11-24--17-42-35"))
-    plot_dataset("recordings/03-12-24--18-33-19", (True, True, True, True))
+    plot_dataset("recordings/03-12-24--18-33-19", (True, True, False, True))
     # plot_markers("recordings/20-11-24--16-26-08")
