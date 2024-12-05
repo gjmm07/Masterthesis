@@ -54,14 +54,20 @@ def read_mocap_setup(base_path: os.PathLike or str):
     return info
 
 def plot_joints(yname, joint_data, ax: plt.Axes, time: int or None):
-    plot_data = None
+    plot_data = []
+    if time is None:
+        time = 1
     for name, data in joint_data.items():
-        if time is None:
-            time = 1
-        plot_data = np.stack((np.linspace(0, time, data.shape[0]), data.flatten()), axis=1)
-        ax.plot(plot_data[:, 0], plot_data[:, 1], label=name)
+        data = data.flatten()
+        t = np.linspace(0, time, data.shape[0])
+        plot_data.append(np.stack((t, data)))
+        ax.plot(t, data, label=name)
     ax.legend()
     ax.set_ylabel(yname)
+    if len(plot_data) == 1:
+        return plot_data[0]
+    elif all([plot_data[0].shape == x.shape for x in plot_data[1:]]):
+        return np.vstack((plot_data[0], *[x[[1], :] for x in plot_data[1:]]))
     return plot_data
 
 def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
@@ -138,10 +144,10 @@ def get_emg_data(path: os.PathLike or str):
 def _export_txt(filename: str, array: np.ndarray, *args, **kwargs):
     array = array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
     array[:, 0] -= array[0, 0]
-    np.savetxt(filename, array, *args, **kwargs, fmt="%f", delimiter=",")
+    np.savetxt(filename, array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
 
 
-def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = False):
+def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = True):
     if not to_plot[0]:
         warnings.warn("If Mocap data is not plotted, y axis will be set to samples")
     to_plot = cycle(to_plot)
@@ -171,13 +177,15 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
         ax, name, joint_data = next(info)
         p_data = plot_joints(name, joint_data, ax, time)
         if export_csvs:
-            _export_txt(name, p_data, header="t, y")
+            _export_txt(name, p_data.T, header="t, y, z")
     if next(to_plot):
         _ = next(ns)
         ax, name, ort_data = next(info)
         p_data = plot_joints(name, ort_data, ax, time)
         if export_csvs:
-            _export_txt(name, p_data, header="t, y")
+            for p_d, chan_name in zip(p_data, ("upper", "lower")):
+                # because of different sample rates each is saved separately
+                _export_txt(f"ort_{chan_name}", p_d.T, header="t, y")
     if next(to_plot):
         for _ in range(next(ns)):
             ax, name, marker_data = next(info)
@@ -189,6 +197,9 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
             ax, name, emg_data = next(info)
             p_data = plot_emg(name, emg_data, ax, time)
             if export_csvs:
+                p_data = p_data[::3, :]
+                print(p_data.shape)
+                # (666900, 5)
                 _export_txt(name, p_data, header="t, a, b, c, d")
     plt.show()
 
@@ -301,5 +312,5 @@ def plot_markers3d(path: os.PathLike or str):
 
 if __name__ == "__main__":
     # print(get_emg_data("recordings/18-11-24--17-42-35"))
-    plot_dataset("recordings/04-12-24--14-06-58", (False, False, False, True))
+    plot_dataset("recordings/03-12-24--18-33-19", (True, True, True, True))
     # plot_markers("recordings/20-11-24--16-26-08")
