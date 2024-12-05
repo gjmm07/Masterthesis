@@ -148,7 +148,7 @@ def _export_txt(filename: str, array: np.ndarray, *args, **kwargs):
     np.savetxt(os.path.join(_SAVE_PATH, filename), array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
 
 
-def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = True):
+def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = False):
     if not to_plot[0]:
         warnings.warn("If Mocap data is not plotted, y axis will be set to samples")
     to_plot = cycle(to_plot)
@@ -313,5 +313,5 @@ def plot_markers3d(path: os.PathLike or str):
 
 if __name__ == "__main__":
     # print(get_emg_data("recordings/18-11-24--17-42-35"))
-    plot_dataset("recordings/03-12-24--18-33-19", (True, True, False, True))
+    plot_dataset("recordings/05-12-24--17-35-00", (True, True, False, True))
     # plot_markers("recordings/20-11-24--16-26-08")

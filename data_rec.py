@@ -44,9 +44,10 @@ except ModuleNotFoundError:
 
 
 INCLUDE_ORT = True
-INCLUDE_EMG = False
+INCLUDE_EMG = True
 INCLUDE_MOCAP = True
 SUBJECT = "Finn"
+REC_DELAY = 300
 
 
 def _create_folder():
@@ -220,7 +221,9 @@ class DataRecorderManager(_DataRecorder):
         self._next_state = next(self._pipeline)
         asyncio.ensure_future(sync_ort())
 
-    def _delay(self, delay: int, func, *args):
+    def _delay(self, delay: int or None, func, *args):
+        if delay is None:
+            return
         async def wait():
             await asyncio.sleep(0.1)
             for i in tqdm(range(delay), leave=False):
@@ -238,7 +241,7 @@ class DataRecorderManager(_DataRecorder):
         self._emg_recorder.start_recording()
         self._start_rec.set()
         self._next_state = next(self._pipeline)
-        self._delay(60, self._stop_rec_data)
+        self._delay(REC_DELAY, self._stop_rec_data)
 
     def _stop_rec_data(self):
         print("stop rec data")
