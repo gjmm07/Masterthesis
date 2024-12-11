@@ -1,6 +1,7 @@
 from typing import Literal
 import matplotlib.pyplot as plt
 import numpy as np
+
 import utils
 import os
 from ViconMoCap import get_joint, calc_elbow_angle, calc_wrist_angle
@@ -142,10 +143,14 @@ def get_emg_data(path: os.PathLike or str):
         data.append(emg_chan_data)
     return tuple(read_data.keys()), data, None
 
-def _export_txt(filename: str, array: np.ndarray, *args, **kwargs):
-    array = array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
-    array[:, 0] -= array[0, 0]
-    np.savetxt(os.path.join(_SAVE_PATH, filename), array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
+
+def _export_txt(path: os.PathLike or str, array: np.ndarray,  *args, **kwargs):
+    # todo: this needs to be updated if marker position over time are exported again
+    np.savetxt(path, array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
+
+
+def _crop_time(array: np.ndarray):
+    return array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
 
 
 def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = False):
@@ -178,7 +183,8 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
         ax, name, joint_data = next(info)
         p_data = plot_joints(name, joint_data, ax, time)
         if export_csvs:
-            _export_txt(name, p_data.T, header="t, y, z")
+            p_data = _crop_time(p_data.T)
+            _export_txt(name, p_data, header="t, y, z")
     if next(to_plot):
         _ = next(ns)
         ax, name, ort_data = next(info)
@@ -186,21 +192,22 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
         if export_csvs:
             for p_d, chan_name in zip(p_data, ("upper", "lower")):
                 # because of different sample rates each is saved separately
-                _export_txt(f"ort_{chan_name}", p_d.T, header="t, y")
+                p_d = _crop_time(p_d.T)
+                _export_txt(f"ort_{chan_name}", p_d, header="t, y")
     if next(to_plot):
         for _ in range(next(ns)):
             ax, name, marker_data = next(info)
             p_data = plot_markers(ax, name, marker_data, time)
             if export_csvs:
+                p_data = _crop_time(p_data)
                 _export_txt(name, p_data, header="t, x, y, z")
     if next(to_plot):
         for _ in range(next(ns)):
             ax, name, emg_data = next(info)
             p_data = plot_emg(name, emg_data, ax, time)
             if export_csvs:
+                p_data = _crop_time(p_data)
                 p_data = p_data[::50, :]
-                print(p_data.shape)
-                # (666900, 5)
                 _export_txt(name, p_data, header="t, a, b, c, d")
     plt.show()
 
@@ -222,12 +229,13 @@ def _plot_elbow_angle(ax: plt.Axes, c_shoulder, c_elbow, c_wrist):
         (arc_elbow[1:], arc_elbow[:-1], np.tile(c_elbow, (n-1, 1))), axis=2).transpose(0, 2, 1)
     vertices = Poly3DCollection(vertices)
     ax.add_collection3d(vertices)
+    return arc_elbow
 
 
 def _plot_wrist_angle(ax: plt.Axes, c_elbow, c_wrist, elbow_axis, wrist_axis):
     radius = 30
     n = 100
-    angle = 180 - calc_wrist_angle(c_elbow, c_wrist, elbow_axis, wrist_axis)
+    angle = calc_wrist_angle(c_elbow, c_wrist, elbow_axis, wrist_axis)
     x = np.atleast_2d(np.linspace(0, np.radians(angle), n))
     n_plane = (c_wrist - c_elbow) / np.linalg.norm(c_elbow - c_wrist)
     n2 = np.cross(n_plane, wrist_axis)
@@ -238,6 +246,7 @@ def _plot_wrist_angle(ax: plt.Axes, c_elbow, c_wrist, elbow_axis, wrist_axis):
         (arc_wrist[1:], arc_wrist[:-1], np.tile(c_wrist, (n - 1, 1))), axis=2).transpose(0, 2, 1)
     vertices = Poly3DCollection(vertices)
     ax.add_collection3d(vertices)
+    return arc_wrist
 
 
 def _get_axis_limits(markers: np.ndarray):
@@ -258,6 +267,7 @@ def _output_latex(ary: np.ndarray):
                     print(", ", end="")
             print(") ")
         print("}")
+
 
 def _output_arc_fill_latex(center: np.ndarray, ary: np.ndarray):
     ary = np.vstack((center, ary))
@@ -282,11 +292,15 @@ def _read_markers(path: os.PathLike or str):
     predicted = data["marker_prediction"]
     return marker_names, markers, predicted
 
-def plot_markers3d(path: os.PathLike or str):
+def plot_markers3d(path: os.PathLike or str,
+                   t_point: int,
+                   include_prev_samples: int = 10,
+                   export_csvs: bool = False):
     marker_names, markers, predicted = _read_markers(path)
-    markers = markers - markers[0, 0, :]
-    markers = markers[10:20]
-    print(np.all(predicted[10:20] == 1))
+    markers -= markers[t_point, 0, :]
+    markers = markers[t_point-include_prev_samples:t_point+1]
+    if not np.all(predicted[t_point-include_prev_samples:t_point] == 1):
+        warnings.warn("Some Markers are occluded or predicted")
     fig = plt.figure()
     axis_limits = _get_axis_limits(markers)
     ax = fig.add_subplot(projection="3d")
@@ -295,23 +309,39 @@ def plot_markers3d(path: os.PathLike or str):
     ax.axes.set_zlim3d(axis_limits[2, :])
     ax.set_aspect("equal")
     for i, name in enumerate(marker_names):
-        ax.text(markers[0, i, 0], markers[0, i, 1], markers[0, i, 2], s=name, size=10, zorder=1)
-    ax.plot(*markers[0, [0, 1], :].T)
-    ax.plot(*markers[0, [2, 4], :].T)
-    ax.plot(*markers[0, [6, 5], :].T)
-    center_shoulder, _ = get_joint(markers[0, 1, :], markers[0, 0, :])
-    center_elbow, elbow_axis = get_joint(markers[0, 2, :], markers[0, 4, :])
-    center_wrist, wrist_axis = get_joint(markers[0, 5, :], markers[0, 6, :])
+        ax.text(markers[-1, i, 0], markers[-1, i, 1], markers[-1, i, 2], s=name, size=10, zorder=1)
+    # Markers
+    ax.scatter(*markers[-1,].T, marker="o")
+    # Joint Vectors
+    ax.plot(*markers[-1, [0, 1], :].T)
+    ax.plot(*markers[-1, [2, 4], :].T)
+    ax.plot(*markers[-1, [6, 5], :].T)
+    center_shoulder, _ = get_joint(markers[-1, 1, :], markers[-1, 0, :])
+    center_elbow, elbow_axis = get_joint(markers[-1, 2, :], markers[-1, 4, :])
+    center_wrist, wrist_axis = get_joint(markers[-1, 5, :], markers[-1, 6, :])
     centers = np.array((center_shoulder, center_elbow, center_wrist))
     ax.plot(*centers.T, marker="o")
-    _plot_elbow_angle(ax, center_shoulder, center_elbow, center_wrist)
-    _plot_wrist_angle(ax, center_elbow, center_wrist, elbow_axis, wrist_axis)
+    arc_elbow = _plot_elbow_angle(ax, center_shoulder, center_elbow, center_wrist)
+    arc_wrist = _plot_wrist_angle(ax, center_elbow, center_wrist, elbow_axis, wrist_axis)
+    if export_csvs:
+        base_path = os.path.join(_SAVE_PATH, "Elbow_scatter")
+        _export_txt(os.path.join(base_path, "marker_pos"), markers[-1], header="x, y, z")
+        _export_txt(os.path.join(base_path, "shoulder_vec"), markers[-1, [0, 1], :], header="x, y, z")
+        _export_txt(os.path.join(base_path, "elbow_vec"), markers[-1, [2, 4], :], header="x, y, z")
+        _export_txt(os.path.join(base_path, "wrist_vec"), markers[-1, [5, 6], :], header="x, y, z")
+        _export_txt(os.path.join(base_path, "joint_centers"), centers, header="x, y, z")
+        _export_txt(os.path.join(base_path, "arc_elbow"), arc_elbow, header="x, y, z")
+        _export_txt(os.path.join(base_path, "arc_wrist"), arc_wrist, header="x, y, z")
+        _export_txt(
+            os.path.join(base_path, "fill_elbow"), np.vstack((center_elbow, arc_elbow, center_elbow)), header="x, y, z")
+        _export_txt(
+            os.path.join(base_path, "fill_wrist"), np.vstack((center_wrist, arc_wrist, center_wrist)), header="x, y, z")
     for i in range(markers.shape[1]):
         ax.plot(*markers[:, i, :].T, c="blue", alpha=0.5)
     plt.show()
 
 
 if __name__ == "__main__":
-    # print(get_emg_data("recordings/18-11-24--17-42-35"))
-    plot_dataset("recordings/05-12-24--17-35-00", (True, True, False, True))
+    # plot_dataset("recordings/05-12-24--17-35-00", (True, True, False, True))
     # plot_markers("recordings/20-11-24--16-26-08")
+    plot_markers3d("recordings/05-12-24--16-36-04", 2000, 100, False)
