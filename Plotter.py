@@ -80,7 +80,7 @@ def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
     for offset, data in enumerate(chan_data.values()):
         if not offset:
             plot_data.append(np.atleast_2d(np.linspace(0, time, data.shape[0])).T)
-        plot_data.append(data + offset * 0.2)
+        plot_data.append(data + offset * 0.8)
         # todo: Fix if only one channel at any sensor
         # plot_data.append(data)
     plot_data = np.hstack(plot_data)
@@ -342,6 +342,6 @@ def plot_markers3d(path: os.PathLike or str,
 
 
 if __name__ == "__main__":
-    # plot_dataset("recordings/05-12-24--17-35-00", (True, True, False, True))
-    # plot_markers("recordings/20-11-24--16-26-08")
-    plot_markers3d("recordings/05-12-24--16-36-04", 2000, 100, False)
+    plot_dataset("recordings/12-12-24--15-13-35", (False, False, False, True))
+    # plot_markers("recordings/1")
+    # plot_markers3d("recordings/12-12-24--13-55-33", 2000, 100, False)

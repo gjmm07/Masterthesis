@@ -12,6 +12,8 @@ from scipy.optimize import root
 from typing import Sequence, Optional
 from enum import Enum
 
+from const import SUBJECT_NAME as _SUBJECT_NAME
+
 
 def _get_brother_markers(markers: np.ndarray):
     """
@@ -186,7 +188,7 @@ def calc_wrist_angle(
     theta = np.degrees(np.arccos(np.clip(np.dot(n1, n2), -1.0, 1.0)))
     return theta
 
-_SUBJECT_NAME = "Finn"
+
 
 class _ViconMoCap:
 

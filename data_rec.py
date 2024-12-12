@@ -43,11 +43,7 @@ except ModuleNotFoundError:
     has_vicon = False
 
 
-INCLUDE_ORT = True
-INCLUDE_EMG = True
-INCLUDE_MOCAP = True
-SUBJECT = "Finn"
-REC_DELAY = 300
+from const import *
 
 
 def _create_folder():
@@ -166,9 +162,9 @@ class DataRecorderManager(_DataRecorder):
         self._stop_rec: asyncio.Event = asyncio.Event()
         if not (has_mm_human3d or has_vicon):
             raise ValueError("Needs either vicon or mmhumand3d")
-        if has_mm_human3d:
+        if has_mm_human3d and INCLUDE_MOCAP:
             self._hum_pose_est = HumanPoseEstimator(self._cur_pos, self._stop_event, cam_id=0)
-        if has_vicon:
+        if has_vicon and INCLUDE_MOCAP:
             self._hum_pose_est = ViconMoCapMarker(
                 self._cur_pos, self._stop_event, self._path, self._start_rec, self._stop_rec)
         if not (has_delsys or has_digital_trigger):
@@ -259,7 +255,8 @@ class DataRecorderManager(_DataRecorder):
         self._start_rec.set()
         self._stop_rec.set()
         self._stop_event.set()
-        self._hum_pose_est.stop()
+        if INCLUDE_MOCAP:
+            self._hum_pose_est.stop()
         print("exit")
 
 

@@ -175,6 +175,7 @@ class DelsysCentro:
         self._base.Start()
 
     def _stop_station(self):
+        # todo: Looks like this cannot be called before data was polled (?)
         self._base.Stop()
 
     def _get_pipeline_state(self):
