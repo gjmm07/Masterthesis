@@ -9,8 +9,9 @@ from itertools import cycle, chain
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import warnings
 
-EXPORT_TIME = (190, 250)
+EXPORT_TIME = (193, 253)
 _SAVE_PATH = "/home/finn/Documents/LatexMA/data/"
+_EMG_PLOT_DIST: float = 0.3
 
 
 def read_mocap_marker(base_path: os.PathLike or str):
@@ -80,7 +81,7 @@ def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
     for offset, data in enumerate(chan_data.values()):
         if not offset:
             plot_data.append(np.atleast_2d(np.linspace(0, time, data.shape[0])).T)
-        plot_data.append(data + offset * 0.8)
+        plot_data.append(data + offset * _EMG_PLOT_DIST)
         # todo: Fix if only one channel at any sensor
         # plot_data.append(data)
     plot_data = np.hstack(plot_data)
@@ -150,10 +151,12 @@ def _export_txt(path: os.PathLike or str, array: np.ndarray,  *args, **kwargs):
 
 
 def _crop_time(array: np.ndarray):
-    return array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
+    ary = array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
+    ary[:, 0] -= ary[0, 0]
+    return ary
 
 
-def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = False):
+def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = True):
     if not to_plot[0]:
         warnings.warn("If Mocap data is not plotted, y axis will be set to samples")
     to_plot = cycle(to_plot)
@@ -184,7 +187,7 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
         p_data = plot_joints(name, joint_data, ax, time)
         if export_csvs:
             p_data = _crop_time(p_data.T)
-            _export_txt(name, p_data, header="t, y, z")
+            _export_txt(os.path.join(_SAVE_PATH, name), p_data, header="t, y, z")
     if next(to_plot):
         _ = next(ns)
         ax, name, ort_data = next(info)
@@ -193,14 +196,15 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
             for p_d, chan_name in zip(p_data, ("upper", "lower")):
                 # because of different sample rates each is saved separately
                 p_d = _crop_time(p_d.T)
-                _export_txt(f"ort_{chan_name}", p_d, header="t, y")
+                path = os.path.join(_SAVE_PATH, f"ort_{chan_name}")
+                _export_txt(path, p_d, header="t, y")
     if next(to_plot):
         for _ in range(next(ns)):
             ax, name, marker_data = next(info)
             p_data = plot_markers(ax, name, marker_data, time)
             if export_csvs:
                 p_data = _crop_time(p_data)
-                _export_txt(name, p_data, header="t, x, y, z")
+                _export_txt(os.path.join(_SAVE_PATH, name), p_data, header="t, x, y, z")
     if next(to_plot):
         for _ in range(next(ns)):
             ax, name, emg_data = next(info)
@@ -208,7 +212,7 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
             if export_csvs:
                 p_data = _crop_time(p_data)
                 p_data = p_data[::50, :]
-                _export_txt(name, p_data, header="t, a, b, c, d")
+                _export_txt(os.path.join(_SAVE_PATH, name), p_data, header="t, a, b, c, d")
     plt.show()
 
 def _plot_elbow_angle(ax: plt.Axes, c_shoulder, c_elbow, c_wrist):
@@ -342,6 +346,6 @@ def plot_markers3d(path: os.PathLike or str,
 
 
 if __name__ == "__main__":
-    plot_dataset("recordings/12-12-24--15-13-35", (False, False, False, True))
+    plot_dataset("recordings/03-12-24--18-33-19", (True, True, True, True))
     # plot_markers("recordings/1")
     # plot_markers3d("recordings/12-12-24--13-55-33", 2000, 100, False)
