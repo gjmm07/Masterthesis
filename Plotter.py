@@ -1,79 +1,45 @@
 from typing import Literal
 import matplotlib.pyplot as plt
 import numpy as np
-
-import utils
 import os
 from ViconMoCap import get_joint, calc_elbow_angle, calc_wrist_angle
 from itertools import cycle, chain
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import warnings
 
+from utils import read_mocap_joints, read_mocap_marker, read_ort_data, read_emg_data, read_mocap_setup
+
 EXPORT_TIME = (193, 253)
 _SAVE_PATH = "/home/finn/Documents/LatexMA/data/"
 _EMG_PLOT_DIST: float = 0.3
 
-
-def read_mocap_marker(base_path: os.PathLike or str):
-    path = os.path.join(base_path, "MoCap")
-    return utils.read_data(os.path.join(path, "marker.h5"))
-
-
-def read_mocap_joints(base_path: os.PathLike or str):
-    path = os.path.join(base_path, "MoCap")
-    return utils.read_data(os.path.join(path, "joint_data.h5"))
-
-
-def read_ort_data(base_path: os.PathLike or str):
-    return dict(reversed(list(utils.read_data(os.path.join(base_path, "Ort_data", "data.h5")).items())))
-
-
-def read_emg_data(base_path: os.PathLike or str):
-    path = os.path.join(base_path, "EMG_data")
-    data = {}
-    for dir_ in os.listdir(path):
-        subdir = os.path.join(path, dir_)
-        if not os.path.isdir(subdir):
-            continue
-        data[dir_] = utils.read_data(os.path.join(subdir, "data.h5"))
-    return data
-
-
-def read_mocap_setup(base_path: os.PathLike or str):
-    info = {}
-    with open(os.path.join(base_path, "MoCap", "setup.txt"), "r") as file:
-        key = ""
-        for line in file.readlines():
-            if line.startswith("###"):
-                key = str(line.strip("# \n"))
-                info[key] = []
-            else:
-                try:
-                    info[key].append(eval(line))
-                except NameError:
-                    info[key].append(line.strip())
-                except (KeyError, SyntaxError):
-                    pass
-    return info
-
-def plot_joints(yname, joint_data, ax: plt.Axes, time: int or None):
+def plot_joints(yname: str,
+                joint_data: dict,
+                ax: plt.Axes,
+                time: int or None = None,
+                t_crop: tuple[int, int] or None = None):
     plot_data = []
     if time is None:
         time = 1
     for name, data in joint_data.items():
-        data = data.flatten()
-        t = np.linspace(0, time, data.shape[0])
-        plot_data.append(np.stack((t, data)))
-        ax.plot(t, data, label=name)
+        d = np.stack((np.linspace(0, time, data.shape[0]), data.flatten())).T
+        if t_crop is not None:
+            d = _crop_time(d, t_crop)
+        plot_data.append(d)
+        ax.plot(d[:,0], d[:,1], label=name)
     ax.legend()
     ax.set_ylabel(yname)
     if len(plot_data) == 1:
         return plot_data[0]
     elif all([plot_data[0].shape == x.shape for x in plot_data[1:]]):
-        return np.vstack((plot_data[0], *[x[[1], :] for x in plot_data[1:]]))
+        return np.hstack((plot_data[0], *[x[:, [1]] for x in plot_data[1:]]))
     return plot_data
 
-def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
+def plot_emg(sensor: str,
+             chan_data,
+             ax: plt.Axes,
+             time: int or None = None,
+             t_crop: tuple[int, int] or None = None):
     if time is None:
         # todo: fix this
         time = 1
@@ -85,18 +51,26 @@ def plot_emg(sensor: str, chan_data, ax: plt.Axes, time: int or None):
         # todo: Fix if only one channel at any sensor
         # plot_data.append(data)
     plot_data = np.hstack(plot_data)
+    if t_crop is not None:
+        plot_data = _crop_time(plot_data, t_crop)
     ax.plot(plot_data[:, 0], plot_data[:, 1:], lw=0.2, label=chan_data.keys())
     ax.set_ylabel(f"{sensor} [mV]")
     ax.legend()
     return plot_data
 
-def plot_markers(ax: plt.Axes, marker_label, data, time):
+def plot_markers(ax: plt.Axes,
+                 marker_label,
+                 data,
+                 time,
+                 t_crop: tuple[int, int] or None = None):
     ax.set_ylabel(f"{marker_label} [mm]")
     marker_pos = data["mocap"]
     plot_data = np.hstack((
         np.atleast_2d(np.linspace(0, time, marker_pos.shape[0])).T,
         marker_pos
     ))
+    if t_crop is not None:
+        plot_data = _crop_time(plot_data, t_crop)
     ax.plot(plot_data[:, 0],
             plot_data[:, 1:], label=("x", "y", "z"))
     ax.legend()
@@ -110,7 +84,7 @@ def get_joints(path: os.PathLike or str) -> tuple[tuple[str], tuple[dict], float
             (dict(zip(("upper arm", "lower arm"), data)), ), time)
 
 
-def get_markers(path: os.PathLike or str, *marker_labels):
+def get_markers(path: os.PathLike or str, marker_labels):
     all_marker_labels = [x[0] for x in read_mocap_setup(path)["Markers"]]
     # 'ShoulderB', 'ShoulderF', 'ElbowO', 'UpperArm', 'ElbowI', 'WristI', 'WristO', 'ForeArm', 'WristL'
     if marker_labels == ():
@@ -150,20 +124,28 @@ def _export_txt(path: os.PathLike or str, array: np.ndarray,  *args, **kwargs):
     np.savetxt(path, array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
 
 
-def _crop_time(array: np.ndarray):
-    ary = array[(EXPORT_TIME[0] < array[:, 0]) & (array[:, 0] <= EXPORT_TIME[1])]
+def _crop_time(array: np.ndarray, crop_time: tuple[int, int]):
+    if crop_time[0] >= crop_time[1]:
+        raise ValueError("crop time false")
+    ary = array[(crop_time[0] < array[:, 0]) & (array[:, 0] <= crop_time[1])]
     ary[:, 0] -= ary[0, 0]
     return ary
 
 
-def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool = True):
+def plot_dataset(path: os.PathLike or str,
+                 to_plot: tuple[bool, bool, bool, bool],
+                 *,
+                 export_csvs: bool = False,
+                 t_crop: tuple[int, int] or None = None,
+                 fig: plt.Figure or None = None,
+                 markers: tuple[str] = ()):
     if not to_plot[0]:
         warnings.warn("If Mocap data is not plotted, y axis will be set to samples")
     to_plot = cycle(to_plot)
     funcs = (get_joints,
              get_ort_joints,
              lambda p: get_markers(p,
-                                   # "ElbowO", "WristI"
+                                   markers
                                    ),
              get_emg_data)
     plot_names, data, ns = [], [], []
@@ -177,40 +159,43 @@ def plot_dataset(path, to_plot: tuple[bool, bool, bool, bool], export_csvs: bool
             plot_names += plot_name
             data += read_data
     print(time)
-    fig, axs = plt.subplots(len(plot_names), 1, squeeze=False)
+    if fig is None:
+        fig = plt.figure()
+    axs = fig.subplots(len(plot_names), 1, squeeze=False, sharex=True)
+    # fig, axs = plt.subplots(len(plot_names), 1, squeeze=False)
     info = iter(zip(axs.flatten(), plot_names, data))
     ns = iter(ns)
     if next(to_plot):
-        # joint_data = next(data)
         _ = next(ns)
         ax, name, joint_data = next(info)
-        p_data = plot_joints(name, joint_data, ax, time)
+        joint_data = {key: np.where(val==-999, np.nan, val) for key, val in joint_data.items()}
+        p_data = plot_joints(name, joint_data, ax, time, t_crop)
         if export_csvs:
-            p_data = _crop_time(p_data.T)
+            # p_data = _crop_time(p_data.T)
+            print(p_data.shape)
             _export_txt(os.path.join(_SAVE_PATH, name), p_data, header="t, y, z")
     if next(to_plot):
         _ = next(ns)
         ax, name, ort_data = next(info)
-        p_data = plot_joints(name, ort_data, ax, time)
+        p_data = plot_joints(name, ort_data, ax, time, t_crop)
         if export_csvs:
             for p_d, chan_name in zip(p_data, ("upper", "lower")):
                 # because of different sample rates each is saved separately
-                p_d = _crop_time(p_d.T)
+                # p_d = _crop_time(p_d.T)
                 path = os.path.join(_SAVE_PATH, f"ort_{chan_name}")
                 _export_txt(path, p_d, header="t, y")
     if next(to_plot):
         for _ in range(next(ns)):
             ax, name, marker_data = next(info)
-            p_data = plot_markers(ax, name, marker_data, time)
+            p_data = plot_markers(ax, name, marker_data, time, t_crop)
             if export_csvs:
-                p_data = _crop_time(p_data)
                 _export_txt(os.path.join(_SAVE_PATH, name), p_data, header="t, x, y, z")
     if next(to_plot):
         for _ in range(next(ns)):
             ax, name, emg_data = next(info)
-            p_data = plot_emg(name, emg_data, ax, time)
+            p_data = plot_emg(name, emg_data, ax, time, t_crop)
             if export_csvs:
-                p_data = _crop_time(p_data)
+                # p_data = _crop_time(p_data)
                 p_data = p_data[::50, :]
                 _export_txt(os.path.join(_SAVE_PATH, name), p_data, header="t, a, b, c, d")
     plt.show()
@@ -346,6 +331,12 @@ def plot_markers3d(path: os.PathLike or str,
 
 
 if __name__ == "__main__":
-    plot_dataset("recordings/03-12-24--18-33-19", (True, True, True, True))
+    plot_dataset("recordings/03-12-24--18-33-19",
+                 (True, True, True, True),
+                 # t_crop=EXPORT_TIME,
+                 t_crop=(193, 253),
+                 export_csvs=False,
+                 # markers=("ShoulderF", )
+                 )
     # plot_markers("recordings/1")
     # plot_markers3d("recordings/12-12-24--13-55-33", 2000, 100, False)

@@ -126,6 +126,7 @@ class _MarkerPrediction:
                 continue
             elif i not in indices:
                 # no need to predict as marker is not used
+                # todo: In this case, should the last valid position be inserted?
                 predicted.append(-2)
                 continue
             bros = self._best_brothers[i, :3]
