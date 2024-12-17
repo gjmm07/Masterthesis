@@ -139,6 +139,7 @@ def plot_dataset(path: os.PathLike or str,
                  t_crop: tuple[int, int] or None = None,
                  fig: plt.Figure or None = None,
                  markers: tuple[str] = ()):
+    # todo: This could use the dataclass instead
     if not to_plot[0]:
         warnings.warn("If Mocap data is not plotted, y axis will be set to samples")
     to_plot = cycle(to_plot)
