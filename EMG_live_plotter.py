@@ -34,7 +34,7 @@ class EMGPlotter:
                 ax.set_xlim(0, EMGPlotter.n)
                 for i, chan in enumerate(chans):
                     self._lines.append(*ax.plot([], [], linewidth=0.5, label=chan))
-                    offsets.append(i)
+                    offsets.append(i * 0.5)
                 ax.set_ylim(-2, 2 + i)
                 ax.legend(fontsize=10, loc="upper right")
             ani = FuncAnimation(fig, func=self._ani, fargs=(offsets, ), interval=100, cache_frame_data=False)
