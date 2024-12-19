@@ -4,7 +4,9 @@ import numpy as np
 from typing import Sequence
 from operator import itemgetter
 from dataclasses import dataclass
+import matplotlib.pyplot as plt
 
+_SAVE_PATH = "/home/finn/Documents/LatexMA/data/"
 
 def save(path: os.PathLike or str,
          data: np.ndarray or Sequence[np.ndarray],
@@ -77,6 +79,166 @@ def read_subject(base_path: os.PathLike or str):
         return f.readline().strip()
 
 
+def _export_txt(path: os.PathLike or str, array: np.ndarray,  *args, **kwargs):
+    np.savetxt(path, array, *args, **kwargs, fmt="%f", delimiter=",", comments="")
+
+
+@dataclass
+class Data:
+    mocap_joints: np.ndarray
+    emg_data: np.ndarray
+    marker_pred: np.ndarray
+    marker: np.ndarray
+    marker_labels: list[str]
+    upper_motor_angle: np.ndarray = None
+    lower_motor_angle: np.ndarray = None
+    load_cell: np.ndarray = None
+
+    imp_marker_idx = (0, 1, 2, 4, 5, 6) # important markers
+
+    def __repr__(self):
+        return "Data"
+
+    def plot_markers_3d(self, ax: plt.Axes):
+        print(self.marker.shape)
+
+    @property
+    def mocap(self):
+        return dict(zip(("mocap_joints", "marker", "marker_pred"),
+                (self.mocap_joints, self.marker, self.marker_pred)))
+
+    @property
+    def no_mocap(self):
+        return dict(zip(("emg_data", "upper_motor_angle", "lower_motor_angle", "load_cell"),
+                (self.emg_data, self.upper_motor_angle, self.lower_motor_angle, self.load_cell)))
+
+    @property
+    def _time(self):
+        return self.mocap_joints.shape[0] / 100
+
+    def plot_emg(self, ax1:plt.Axes, ax2: plt.Axes):
+        t = np.linspace(0, self._time, self.emg_data.shape[0])
+        ax1.plot(t, self.emg_data[:, :4] + np.atleast_2d(np.linspace(0, 0.6, 4)), lw=0.2)
+        ax1.set_title("Quattro Sensor 1")
+        ax2.plot(t, self.emg_data[:, 4:] + np.atleast_2d(np.linspace(0, 0.6, 4)), lw=0.2)
+        ax2.set_title("Quattro Sensor 3")
+
+    def plot_mocap_joints(self, ax: plt.Axes):
+        t = np.linspace(0, self._time, self.mocap_joints.shape[0])
+        ax.set_title("MoCap Joints")
+        ax.plot(t, self.mocap_joints, label=("Upper Arm", "Lower Arm"))
+        ax.legend()
+
+    def plot_ort_angles(self, ax: plt.Axes):
+        ax.set_title("Exoskeleton Angles")
+        if self.upper_motor_angle is None or self.lower_motor_angle is None:
+            return
+        t = np.linspace(0, self._time, self.upper_motor_angle.shape[0])
+        ax.plot(t, self.upper_motor_angle)
+        t = np.linspace(0, self._time, self.lower_motor_angle.shape[0])
+        ax.plot(t, self.lower_motor_angle)
+
+    def plot_load_cell(self, ax: plt.Axes):
+        ax.set_title("Load Cell")
+        if self.load_cell is None:
+            return
+        t = np.linspace(0, self._time, self.load_cell.shape[0])
+        ax.plot(t, self.load_cell)
+
+    def plot_markers(self, markers: tuple[str, ...], axs: Sequence[plt.Axes], ref_marker: str = "ShoulderB"):
+        if len(markers) != len(axs):
+            raise ValueError("Markers needs same length as axes")
+        indices = [self.marker_labels.index(x) for x in markers]
+        data = self.marker[:, indices, :]
+        ref_index = self.marker_labels.index(ref_marker)
+        data -= self.marker[:, [ref_index], :]
+        t = np.linspace(0, self._time, self.marker.shape[0])
+        for i, (ax, title) in enumerate(zip(axs, [self.marker_labels[j] for j in indices])):
+            ax.set_title(title)
+            ax.plot(t, data[:, i, :], label=("x", "y", "z"))
+            ax.legend()
+
+    def plot(self, *,
+             plot_emg: bool = False,
+             plot_mocap_joints: bool=False,
+             plot_ort_angles: bool = False,
+             plot_load_cell: bool = False,
+             plot_markers: bool = False,
+             markers: tuple[str, ...] = (),
+             ref_marker: str = ""):
+        n_plots = sum((plot_mocap_joints, plot_ort_angles, plot_load_cell))
+        if plot_emg:
+            n_plots += 2
+        if plot_markers:
+            n_plots += len(markers)
+        if not n_plots:
+            return
+        fig, axs = plt.subplots(n_plots, sharex=True)
+        axs = iter(axs)
+        if plot_emg:
+            self.plot_emg(next(axs), next(axs))
+        if plot_mocap_joints:
+            self.plot_mocap_joints(next(axs))
+        if plot_ort_angles:
+            self.plot_ort_angles(next(axs))
+        if plot_load_cell:
+            self.plot_load_cell(next(axs))
+        if plot_markers:
+            self.plot_markers(markers, [next(axs) for _ in markers], ref_marker)
+        fig.tight_layout()
+        plt.show()
+
+    @staticmethod
+    def _crop_by_percent(ary: np.ndarray, percent: np.ndarray):
+        if ary is None:
+            return
+        bounds = (percent * ary.shape[0]).astype(int)
+        return ary[bounds[0]:bounds[1]]
+
+    def crop_data(self, *time):
+        if len(time) > 2:
+            return
+        if len(time) == 1:
+            start_time, end_time = 0, time[0]
+        elif time[1] is None:
+            start_time, end_time = time[0], self._time
+        else:
+            start_time, end_time = time
+        print(start_time, end_time)
+        if end_time <= start_time:
+            raise ValueError("End time must be greater than start time")
+        if (end_time - start_time) > self._time:
+            raise ValueError("Selected Sequence is too small for data")
+        percent_bounds = np.array((start_time / self._time, end_time / self._time))
+        bounds = (percent_bounds * self.mocap_joints.shape[0]).astype(int)
+        self.mocap_joints = self.mocap_joints[bounds[0]:bounds[1]]
+        self.marker = self.marker[bounds[0]:bounds[1]]
+        self.marker_pred = self.marker_pred[bounds[0]:bounds[1]]
+        self.emg_data = self._crop_by_percent(self.emg_data, percent_bounds)
+        self.upper_motor_angle = self._crop_by_percent(self.upper_motor_angle, percent_bounds)
+        self.lower_motor_angle = self._crop_by_percent(self.lower_motor_angle, percent_bounds)
+        self.load_cell = self._crop_by_percent(self.load_cell, percent_bounds)
+
+    def export_plot_data(self):
+        _export_txt(os.path.join(_SAVE_PATH, "MoCap Joints [deg]"),
+                    np.c_[np.linspace(0, self._time, self.mocap_joints.shape[0]), self.mocap_joints],
+                    header="t, y, z")
+        emg_data = self.emg_data[::50, :] + np.tile(np.linspace(0, 0.6, 4), 2)
+        _export_txt(os.path.join(_SAVE_PATH, "Quattro Sensor st 1"),
+                    np.c_[np.linspace(0, self._time, emg_data.shape[0]), emg_data[:, :4]],
+                    header="t, a, b, c, d")
+        _export_txt(os.path.join(_SAVE_PATH, "Quattro Sensor st 3"),
+                    np.c_[np.linspace(0, self._time, emg_data.shape[0]), emg_data[:, 4:]],
+                    header="t, a, b, c, d")
+        _export_txt(os.path.join(_SAVE_PATH, "ort_lower"),
+                    np.c_[np.linspace(0, self._time, self.lower_motor_angle.shape[0]), self.lower_motor_angle],
+                    header="t, y")
+        _export_txt(os.path.join(_SAVE_PATH, "ort_upper"),
+                    np.c_[np.linspace(0, self._time, self.upper_motor_angle.shape[0]), self.upper_motor_angle],
+                    header="t, y")
+        # todo: Export marker prediction and marker if needed
+
+
 def read_dataset(
         subject: str,
         *,
@@ -84,98 +246,89 @@ def read_dataset(
         read_mocap: bool = True,
         read_emg: bool = True,
         read_ort: bool = False
-):
-    # todo: Handle cases where not data is present
-    emg_data, mocap, marker_pred, mocap_joints = [], [], [], []
-    upper_mot_angle, lower_mot_angle, load_cell = [], [], []
-    marker_labels = None
+) -> list[Data]:
+    """
+    Reads a complete dataset
+    :param subject:
+    :param timestamp:
+    :param read_mocap:
+    :param read_emg:
+    :param read_ort:
+    :return:
+    """
+    # todo: Handle cases where no data is present
+    data = []
     for dir_ in os.listdir("recordings"):
         if timestamp is not None and dir_[:len(timestamp)] != timestamp:
             continue
         path = os.path.join("recordings", dir_)
         if read_subject(path) != subject:
             continue
+        emg_data = None
+        marker = None
+        marker_pred = None
+        mocap_joints = None
+        up_mot_angle = None
+        low_mot_angle = None
+        load_cell = None
+        marker_labels = None
+        valid: bool = True
         if read_mocap:
-            marker_prediction, m_mocap = itemgetter(
+            marker_pred, marker = itemgetter(
                 "marker_prediction", "mocap")(read_mocap_marker(path))
-            mocap_joints.append(read_mocap_joints(path)["joints"])
-            marker_pred.append(marker_prediction)
-            mocap.append(m_mocap)
+            mocap_joints = read_mocap_joints(path)["joints"]
             if marker_labels is None:
-                marker_labels = [x[1] for x in read_mocap_setup(path)["Markers"]]
+                marker_labels = [x[0] for x in read_mocap_setup(path)["Markers"]]
+            if not any((marker_pred.size, marker.size, mocap_joints.size, marker_labels)):
+                valid = False
         if read_emg:
-            emg_data.append(
-                np.array([x.flatten() for y in list(read_emg_data(path).values()) for x in y.values()]).T)
+            emg_data = np.array([x.flatten() for y in list(read_emg_data(path).values()) for x in y.values()]).T
+            if not emg_data.size:
+                valid = False
         if read_ort:
-            um_angle, lm_angle, lc = itemgetter("angle_upper_arm", "angle_lower_arm", "load_cell")(read_ort_data(path))
-            upper_mot_angle.append(um_angle)
-            lower_mot_angle.append(lm_angle)
-            load_cell.append(lc)
-    return Data(mocap_joints, emg_data, marker_pred, mocap, marker_labels, upper_mot_angle, lower_mot_angle, load_cell)
+            up_mot_angle, low_mot_angle, load_cell = itemgetter(
+                "angle_upper_arm", "angle_lower_arm", "load_cell")(read_ort_data(path))
+        if valid:
+            data.append(
+                Data(mocap_joints, emg_data, marker_pred, marker, marker_labels, up_mot_angle, low_mot_angle, load_cell))
+    return data
 
 
-@dataclass
-class Data:
-    mocap_joints: list
-    emg_data: list
-    marker_prediction: list
-    mocap: list
-    marker_labels: list
-    upper_motor_angle: list
-    lower_motor_angle: list
-    load_cell: list
+def _crop_data(data: np.ndarray, bounds: np.ndarray):
+    bounds = (bounds * data.shape[0]).astype(int)
+    return data[bounds[0]:bounds[1]]
 
-    imp_marker_idx = (0, 1, 2, 4, 5, 6) # important markers
-
-    @staticmethod
-    def _crop_data(data: np.ndarray, bounds: np.ndarray):
-        bounds = (bounds * data.shape[0]).astype(int)
-        return data[bounds[0]:bounds[1]]
-
-    def drop_useless(self):
-        mocap_joints, mocap, marker_prediction = [], [], []
-        emg_data, upper_motor_angle, lower_motor_angle, load_cell = [], [], [], []
-        for m_joints, marker, marker_pred, emg_d, um_angle, lm_angle, lc in (
-                zip(
-                    self.mocap_joints, self.mocap, self.marker_prediction, self.emg_data,
-                    self.upper_motor_angle, self.lower_motor_angle, self.load_cell)):
-            mask = (
-                np.any(np.sqrt(
-                    np.sum((marker[1:, :, :] - marker[:-1,:,:])**2, axis=2))[:, self.imp_marker_idx] > 50, axis=1) |
-                np.any(marker_pred[:-1] == 0, axis=1) |
-                np.any(np.diff(m_joints, axis=0) > 30, axis=1))
-            mask = [0] + list(np.where(mask)[0]) + [m_joints.shape[0]]
-            for i, diff in enumerate(np.diff(mask)):
-                if diff > 1000:
-                    bounds = (mask[i] + 1, mask[i + 1] - 1)
-                    mocap_joints.append(m_joints[bounds[0]: bounds[1]])
-                    mocap.append(marker[bounds[0]: bounds[1]])
-                    marker_prediction.append(marker_pred[bounds[0]: bounds[1]])
-                    # handle other sample rates
-                    bounds = np.array(bounds) / m_joints.shape[0]
-                    for l, raw_data in zip(
-                            (emg_data, upper_motor_angle, lower_motor_angle, load_cell),
-                            (emg_d, um_angle, lm_angle, lc)):
-                        l.append(self._crop_data(raw_data, bounds))
-        self.mocap_joints = mocap_joints
-        self.mocap = mocap
-        self.marker_prediction = marker_prediction
-        self.emg_data = emg_data
-        self.upper_motor_angle = upper_motor_angle
-        self.lower_motor_angle = lower_motor_angle
-        self.load_cell = load_cell
+def drop_useless(data: list[Data]) -> list[Data]:
+    x = []
+    for n_data in data:
+        mask = (
+            np.any(np.sqrt(
+                np.sum((n_data.marker[1:, :, :] - n_data.marker[:-1,:,:])**2, axis=2))[:, n_data.imp_marker_idx] > 50, axis=1) |
+            np.any(n_data.marker_pred[:-1] == 0, axis=1) |
+            np.any(np.diff(n_data.mocap_joints, axis=0) > 30, axis=1))
+        mask = [0] + list(np.where(mask)[0]) + [n_data.mocap_joints.shape[0]]
+        for i, diff in enumerate(np.diff(mask)):
+            new_data = {}
+            if diff > 1000:
+                bounds = (mask[i] + 1, mask[i + 1] - 1)
+                for label, mocap in n_data.mocap.items():
+                    new_data[label] = mocap[bounds[0]: bounds[1]]
+                # handle other sample rates
+                bounds = np.array(bounds) / n_data.mocap_joints.shape[0]
+                for label, no_mocap in n_data.no_mocap.items():
+                    if no_mocap is None:
+                        new_data[label] = None
+                        continue
+                    new_data[label] = _crop_data(no_mocap, bounds)
+                x.append(Data(**new_data, marker_labels=n_data.marker_labels))
+    return x
 
 
 if __name__ == "__main__":
-    d = read_dataset("Finn", timestamp="05-12-24", read_ort=False)
-    d.drop_useless()
-    import matplotlib.pyplot as plt
-    for l, emg, lm, up in zip(d.mocap_joints, d.emg_data, d.lower_motor_angle, d.upper_motor_angle):
-        fig, axs = plt.subplots(3)
-        axs[0].plot(l)
-        axs[1].plot(up)
-        axs[1].plot(lm)
-        axs[2].plot(emg + np.atleast_2d(np.linspace(0, 1, 8)))
-        plt.show()
+    d = read_dataset("Finn", timestamp="03-12-24--18-33-19", read_ort=True)
+    d = d[0]
+    d.crop_data(193, 253)
+    # d.plot(plot_emg=True, plot_ort_angles=True, plot_mocap_joints=True)
+    d.export_plot_data()
 
 
