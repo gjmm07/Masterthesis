@@ -1,12 +1,13 @@
+from __future__ import annotations
 import h5py
 import os
 import numpy as np
-from typing import Sequence
+from typing import Sequence, List, Tuple
 from operator import itemgetter
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
 
-_SAVE_PATH = "/home/finn/Documents/LatexMA/data/"
+_LATEX_PATH = "/home/finn/Documents/LatexMA/data/"
 
 def save(path: os.PathLike or str,
          data: np.ndarray or Sequence[np.ndarray],
@@ -94,7 +95,10 @@ class Data:
     lower_motor_angle: np.ndarray = None
     load_cell: np.ndarray = None
 
-    imp_marker_idx = (0, 1, 2, 4, 5, 6) # important markers
+    imp_marker_idx = (0, 1, 2, 4, 5, 6) # important markers - check for both mocap models
+
+    def __post_init__(self):
+        self.input_data()
 
     def __repr__(self):
         return "Data"
@@ -116,20 +120,20 @@ class Data:
     def _time(self):
         return self.mocap_joints.shape[0] / 100
 
-    def plot_emg(self, ax1:plt.Axes, ax2: plt.Axes):
+    def _plot_emg(self, ax1:plt.Axes, ax2: plt.Axes):
         t = np.linspace(0, self._time, self.emg_data.shape[0])
         ax1.plot(t, self.emg_data[:, :4] + np.atleast_2d(np.linspace(0, 0.6, 4)), lw=0.2)
         ax1.set_title("Quattro Sensor 1")
         ax2.plot(t, self.emg_data[:, 4:] + np.atleast_2d(np.linspace(0, 0.6, 4)), lw=0.2)
         ax2.set_title("Quattro Sensor 3")
 
-    def plot_mocap_joints(self, ax: plt.Axes):
+    def _plot_mocap_joints(self, ax: plt.Axes):
         t = np.linspace(0, self._time, self.mocap_joints.shape[0])
         ax.set_title("MoCap Joints")
         ax.plot(t, self.mocap_joints, label=("Upper Arm", "Lower Arm"))
         ax.legend()
 
-    def plot_ort_angles(self, ax: plt.Axes):
+    def _plot_ort_angles(self, ax: plt.Axes):
         ax.set_title("Exoskeleton Angles")
         if self.upper_motor_angle is None or self.lower_motor_angle is None:
             return
@@ -138,14 +142,14 @@ class Data:
         t = np.linspace(0, self._time, self.lower_motor_angle.shape[0])
         ax.plot(t, self.lower_motor_angle)
 
-    def plot_load_cell(self, ax: plt.Axes):
+    def _plot_load_cell(self, ax: plt.Axes):
         ax.set_title("Load Cell")
         if self.load_cell is None:
             return
         t = np.linspace(0, self._time, self.load_cell.shape[0])
         ax.plot(t, self.load_cell)
 
-    def plot_markers(self, markers: tuple[str, ...], axs: Sequence[plt.Axes], ref_marker: str = "ShoulderB"):
+    def _plot_markers(self, markers: tuple[str, ...], axs: Sequence[plt.Axes], ref_marker: str = "ShoulderB"):
         if len(markers) != len(axs):
             raise ValueError("Markers needs same length as axes")
         indices = [self.marker_labels.index(x) for x in markers]
@@ -173,18 +177,18 @@ class Data:
             n_plots += len(markers)
         if not n_plots:
             return
-        fig, axs = plt.subplots(n_plots, sharex=True)
-        axs = iter(axs)
+        fig, axs = plt.subplots(n_plots, sharex=True, squeeze=False)
+        axs = iter(axs.flatten())
         if plot_emg:
-            self.plot_emg(next(axs), next(axs))
+            self._plot_emg(next(axs), next(axs))
         if plot_mocap_joints:
-            self.plot_mocap_joints(next(axs))
+            self._plot_mocap_joints(next(axs))
         if plot_ort_angles:
-            self.plot_ort_angles(next(axs))
+            self._plot_ort_angles(next(axs))
         if plot_load_cell:
-            self.plot_load_cell(next(axs))
+            self._plot_load_cell(next(axs))
         if plot_markers:
-            self.plot_markers(markers, [next(axs) for _ in markers], ref_marker)
+            self._plot_markers(markers, [next(axs) for _ in markers], ref_marker)
         fig.tight_layout()
         plt.show()
 
@@ -220,23 +224,138 @@ class Data:
         self.load_cell = self._crop_by_percent(self.load_cell, percent_bounds)
 
     def export_plot_data(self):
-        _export_txt(os.path.join(_SAVE_PATH, "MoCap Joints [deg]"),
+        _export_txt(os.path.join(_LATEX_PATH, "MoCap Joints [deg]"),
                     np.c_[np.linspace(0, self._time, self.mocap_joints.shape[0]), self.mocap_joints],
                     header="t, y, z")
         emg_data = self.emg_data[::50, :] + np.tile(np.linspace(0, 0.6, 4), 2)
-        _export_txt(os.path.join(_SAVE_PATH, "Quattro Sensor st 1"),
+        _export_txt(os.path.join(_LATEX_PATH, "Quattro Sensor st 1"),
                     np.c_[np.linspace(0, self._time, emg_data.shape[0]), emg_data[:, :4]],
                     header="t, a, b, c, d")
-        _export_txt(os.path.join(_SAVE_PATH, "Quattro Sensor st 3"),
+        _export_txt(os.path.join(_LATEX_PATH, "Quattro Sensor st 3"),
                     np.c_[np.linspace(0, self._time, emg_data.shape[0]), emg_data[:, 4:]],
                     header="t, a, b, c, d")
-        _export_txt(os.path.join(_SAVE_PATH, "ort_lower"),
+        _export_txt(os.path.join(_LATEX_PATH, "ort_lower"),
                     np.c_[np.linspace(0, self._time, self.lower_motor_angle.shape[0]), self.lower_motor_angle],
                     header="t, y")
-        _export_txt(os.path.join(_SAVE_PATH, "ort_upper"),
+        _export_txt(os.path.join(_LATEX_PATH, "ort_upper"),
                     np.c_[np.linspace(0, self._time, self.upper_motor_angle.shape[0]), self.upper_motor_angle],
                     header="t, y")
         # todo: Export marker prediction and marker if needed
+
+    def fill(self, max_fill_time: float or Sequence[float] = 1.0):
+        """
+        Fills mocap joints linear if joint angles could not be calculated because marker and ref markers
+        where occluded
+        :param max_fill_time: if gap is larger than max_fill_time, gap will NOT be filled
+        :return:
+        """
+        if type(max_fill_time) == float:
+            max_fill_time = [max_fill_time] * self.mocap_joints.shape[1]
+        max_fill_time = [int(x * 100) for x in max_fill_time]  # convert to samples
+        for i, t_lim in enumerate(max_fill_time):
+            predicted = (self.mocap_joints == -999)[:, i]
+            sections = np.array(
+                [0,
+                 *np.repeat(np.where(predicted[1:] ^ predicted[:-1])[0], 2),
+                 predicted.shape[0] - 1]).reshape(-1, 2)
+            mask = np.zeros_like(self.mocap_joints[:, 0]).astype(bool)
+            for bounds in sections[(predicted[sections[:, 1]]) & ((sections[:, 1] - sections[:, 0]) < t_lim), :]:
+                mask[bounds[0]+1:bounds[1]+1] = True
+            self.mocap_joints[mask, i] = np.interp(np.where(mask)[0], np.where(~mask)[0], self.mocap_joints[~mask, i])
+
+    @staticmethod
+    def _generate_steps(current: float, step: float, total: int):
+        while current < 1:
+            abs_current = round(current * total)
+            yield abs_current
+            current += step
+
+    def input_data(self):
+        """
+        Updates the marker position, marker prediction and marker labels if the old mocap model was used
+        :return:
+        """
+        if self.marker.shape[1] == 9:
+            self.marker[:, [5, 6]] = self.marker[:, [6, 5]]
+            self.marker = np.insert(self.marker,[7, 9], np.nan, axis=1)
+        if self.marker_pred.shape[1] == 9:
+            self.marker_pred[:, [5, 6]] = self.marker_pred[:, [6, 5]]
+            self.marker_pred = np.insert(self.marker_pred,[7, 9], -999, axis=1)
+        if len(self.marker_labels) == 9:
+            self.marker_labels = ["ShoulderB",
+                                  "ShoulderF",
+                                  "ElbowO",
+                                  "UpperArm",
+                                  "ElbowI",
+                                  "WristO",
+                                  "WristI",
+                                  "LowerArm1",
+                                  "LowerArm2",
+                                  "WristL",
+                                  "Hand"]
+
+    def get_data(self,
+                 every: int,
+                 tail_mocap: int,
+                 tail_emg: int,
+                 *,
+                 tail_upper_mot: int = -1,
+                 tail_lower_mot: int = -1,
+                 tail_load_cell: int = -1
+                 ):
+        """
+        Gets windowed data from the Data-Instance. Inspect points are set by MoCap data and the every-parameter.
+        for each data source a tail can be set to return windows from the inspect point - tail to inspect point.
+        Use this function to generate training and testing data for ML models
+        Caution:  Due to setting of different tails, data is not in-sync anymore
+        :param every:           every iteration the pointer will be set <every> samples base on mocap forward
+        :param tail_mocap:      from the current pointer position, return the mocap tail
+        :param tail_emg:        same for emg-data
+        :param tail_upper_mot:  same for angle of upper mot: works only if upper mot data is present
+        :param tail_lower_mot:  same for angle of lower mot: works only if lower mot data is present
+        :param tail_load_cell:  same for angle of load cell: works only if load cell data is present
+        :return: numpy arrays int the form of mocap_joints, marker, marker_prediction, emg_data <opt: upper mot angle>, <opt:lower mot angle>, <opt: load cell>
+
+        """
+        step = every / self.mocap_joints.shape[0]
+        start = max(tail_mocap / self.mocap_joints.shape[0],
+                    tail_emg / self.emg_data.shape[0],
+                    -1 if self.lower_motor_angle is None else tail_lower_mot / self.lower_motor_angle.shape[0],
+                    -1 if self.upper_motor_angle is None else tail_upper_mot / self.upper_motor_angle.shape[0],
+                    -1 if self.load_cell is None else tail_load_cell / self.load_cell.shape[0])
+        gens = [self._generate_steps(start, step, self.mocap_joints.shape[0]),
+               self._generate_steps(start, step, self.emg_data.shape[0])]
+        data_sources = [(self.mocap_joints, self.marker, self.marker_pred),
+                        (self.emg_data, )]
+        tails = [tail_mocap, tail_emg]
+        data_sinks: List[Tuple[List[np.ndarray], ...]] = [([], [], []), ([], )]
+
+        if self.upper_motor_angle is not None and tail_upper_mot >= 1:
+            gens.append(self._generate_steps(start, step, self.upper_motor_angle.shape[0]))
+            data_sources.append((self.upper_motor_angle, ))
+            tails.append(tail_upper_mot)
+            data_sinks.append(([], ))
+        if self.lower_motor_angle is not None and tail_lower_mot >= 1:
+            gens.append(self._generate_steps(start, step, self.lower_motor_angle.shape[0]))
+            data_sources.append((self.lower_motor_angle, ))
+            tails.append(tail_lower_mot)
+            data_sinks.append(([], ))
+        if self.load_cell is not None and tail_load_cell >= 1:
+            gens.append(self._generate_steps(start, step, self.load_cell.shape[0]))
+            data_sources.append((self.load_cell, ))
+            tails.append(tail_load_cell)
+            data_sinks.append(([], ))
+        finished = False
+        while not finished:
+            for gen, sources, sinks, tail in zip(gens, data_sources, data_sinks, tails):
+                try:
+                    stop = next(gen)
+                    start = stop - tail
+                    for source, sink in zip(sources, sinks):
+                        sink.append(source[start:stop])
+                except StopIteration:
+                    finished = True
+        return [np.array(sink) for sinks in data_sinks for sink in sinks]
 
 
 def read_dataset(
@@ -264,14 +383,8 @@ def read_dataset(
         path = os.path.join("recordings", dir_)
         if read_subject(path) != subject:
             continue
-        emg_data = None
-        marker = None
-        marker_pred = None
-        mocap_joints = None
-        up_mot_angle = None
-        low_mot_angle = None
-        load_cell = None
-        marker_labels = None
+        emg_data, marker, marker_pred, mocap_joints = None, None, None, None
+        up_mot_angle, low_mot_angle, load_cell, marker_labels = None, None, None, None
         valid: bool = True
         if read_mocap:
             marker_pred, marker = itemgetter(
@@ -282,8 +395,10 @@ def read_dataset(
             if not any((marker_pred.size, marker.size, mocap_joints.size, marker_labels)):
                 valid = False
         if read_emg:
-            emg_data = np.array([x.flatten() for y in list(read_emg_data(path).values()) for x in y.values()]).T
-            if not emg_data.size:
+            emg_data = read_emg_data(path)
+            if emg_data is not None:
+                emg_data = np.array([x.flatten() for y in list(emg_data.values()) for x in y.values()]).T
+            if emg_data is None or not emg_data.size:
                 valid = False
         if read_ort:
             up_mot_angle, low_mot_angle, load_cell = itemgetter(
@@ -298,21 +413,22 @@ def _crop_data(data: np.ndarray, bounds: np.ndarray):
     bounds = (bounds * data.shape[0]).astype(int)
     return data[bounds[0]:bounds[1]]
 
+
 def drop_useless(data: list[Data]) -> list[Data]:
     x = []
     for n_data in data:
         mask = (
-            np.any(np.sqrt(
-                np.sum((n_data.marker[1:, :, :] - n_data.marker[:-1,:,:])**2, axis=2))[:, n_data.imp_marker_idx] > 50, axis=1) |
-            np.any(n_data.marker_pred[:-1] == 0, axis=1) |
-            np.any(np.diff(n_data.mocap_joints, axis=0) > 30, axis=1))
+            # np.any(np.sqrt(
+            #     np.sum((n_data.marker[1:, :, :] - n_data.marker[:-1,:,:])**2, axis=2))[:, n_data.imp_marker_idx] > 50, axis=1) |
+            # np.any(n_data.marker_pred[:-1] == 0, axis=1) |
+            np.any(np.diff(n_data.mocap_joints, axis=0) > 20, axis=1))
         mask = [0] + list(np.where(mask)[0]) + [n_data.mocap_joints.shape[0]]
         for i, diff in enumerate(np.diff(mask)):
             new_data = {}
             if diff > 1000:
-                bounds = (mask[i] + 1, mask[i + 1] - 1)
+                bounds = (mask[i] + 5, mask[i + 1] - 5)
                 for label, mocap in n_data.mocap.items():
-                    new_data[label] = mocap[bounds[0]: bounds[1]]
+                    new_data[label] = mocap[bounds[0] + 5: bounds[1] - 5]
                 # handle other sample rates
                 bounds = np.array(bounds) / n_data.mocap_joints.shape[0]
                 for label, no_mocap in n_data.no_mocap.items():
@@ -324,11 +440,20 @@ def drop_useless(data: list[Data]) -> list[Data]:
     return x
 
 
+
 if __name__ == "__main__":
-    d = read_dataset("Finn", timestamp="03-12-24--18-33-19", read_ort=True)
-    d = d[0]
-    d.crop_data(193, 253)
-    # d.plot(plot_emg=True, plot_ort_angles=True, plot_mocap_joints=True)
-    d.export_plot_data()
+    d = read_dataset("Finn",
+                     # timestamp="10-12-24",
+                     read_ort=False)
+    for nd in d:
+        nd.fill()
+    d = drop_useless(d)
+    y = []
+    for x in d:
+        y.append(x.get_data(10, 10, 200))
+    for xyx in zip(*y):
+        print(np.vstack(xyx).shape)
+    # d[0].plot(plot_emg=True, plot_ort_angles=True, plot_mocap_joints=True)
+    # plt.show()
 
 
