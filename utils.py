@@ -369,7 +369,6 @@ class Data:
                 try:
                     stop = next(gen)
                     start = stop - tail
-                    print(start, stop)
                     for source, sink in zip(sources, sinks):
                         sink.append(source[start:stop])
                 except StopIteration:
