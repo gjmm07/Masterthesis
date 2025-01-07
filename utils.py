@@ -2,10 +2,11 @@ from __future__ import annotations
 import h5py
 import os
 import numpy as np
-from typing import Sequence, List, Tuple
+from typing import Sequence, List, Tuple, Literal
 from operator import itemgetter
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
+from scipy.ndimage import uniform_filter1d
 
 _LATEX_PATH = "/home/finn/Documents/LatexMA/data/"
 
@@ -103,9 +104,6 @@ class Data:
     def __repr__(self):
         return "Data"
 
-    def plot_markers_3d(self, ax: plt.Axes):
-        print(self.marker.shape)
-
     @property
     def mocap(self):
         return dict(zip(("mocap_joints", "marker", "marker_pred"),
@@ -170,6 +168,16 @@ class Data:
              plot_markers: bool = False,
              markers: tuple[str, ...] = (),
              ref_marker: str = ""):
+        """
+        Plots the current Data Instance
+        :param plot_emg:            Whether to plt emg
+        :param plot_mocap_joints:   Whether to plot mocap
+        :param plot_ort_angles:     Whether to plot orthosis angles
+        :param plot_load_cell:      Whether to plot load cell
+        :param plot_markers:        Whether to plot markers
+        :param markers:             Tuple of marker which are to plot, select from: ShoulderB, ShoulderF etc.
+        :param ref_marker:          Label of marker which should be used as ref, e.g. ShoulderB
+        """
         n_plots = sum((plot_mocap_joints, plot_ort_angles, plot_load_cell))
         if plot_emg:
             n_plots += 2
@@ -246,6 +254,7 @@ class Data:
         """
         Fills mocap joints linear if joint angles could not be calculated because marker and ref markers
         where occluded
+        todo: Could be extended to joint angle where important marker where predicted (?)
         :param max_fill_time: if gap is larger than max_fill_time, gap will NOT be filled
         :return:
         """
@@ -269,6 +278,13 @@ class Data:
             abs_current = round(current * total)
             yield abs_current
             current += step
+
+    def moving_average_filter(self, filter_period: int, on: Literal["joints", "emg"]):
+        if on == "joints":
+            self.mocap_joints = uniform_filter1d(self.mocap_joints, size=filter_period, axis=0)
+        if on == "emg":
+            self.emg_data = uniform_filter1d(np.abs(self.emg_data), size=filter_period, axis=0)
+
 
     def input_data(self):
         """
@@ -298,6 +314,7 @@ class Data:
                  every: int,
                  tail_mocap: int,
                  tail_emg: int,
+                 mocap_future: int = 0,
                  *,
                  tail_upper_mot: int = -1,
                  tail_lower_mot: int = -1,
@@ -311,9 +328,10 @@ class Data:
         :param every:           every iteration the pointer will be set <every> samples base on mocap forward
         :param tail_mocap:      from the current pointer position, return the mocap tail
         :param tail_emg:        same for emg-data
-        :param tail_upper_mot:  same for angle of upper mot: works only if upper mot data is present
-        :param tail_lower_mot:  same for angle of lower mot: works only if lower mot data is present
-        :param tail_load_cell:  same for angle of load cell: works only if load cell data is present
+        :param mocap_future:    samples mocap data is ahead of other
+        :param tail_upper_mot:  same as tail_mocap for angle of upper mot: works only if upper mot data is present
+        :param tail_lower_mot:  same as tail_mocap for angle of lower mot: works only if lower mot data is present
+        :param tail_load_cell:  same as tail mocap for angle of load cell: works only if load cell data is present
         :return: numpy arrays int the form of mocap_joints, marker, marker_prediction, emg_data <opt: upper mot angle>, <opt:lower mot angle>, <opt: load cell>
 
         """
@@ -323,8 +341,8 @@ class Data:
                     -1 if self.lower_motor_angle is None else tail_lower_mot / self.lower_motor_angle.shape[0],
                     -1 if self.upper_motor_angle is None else tail_upper_mot / self.upper_motor_angle.shape[0],
                     -1 if self.load_cell is None else tail_load_cell / self.load_cell.shape[0])
-        gens = [self._generate_steps(start, step, self.mocap_joints.shape[0]),
-               self._generate_steps(start, step, self.emg_data.shape[0])]
+        gens = [self._generate_steps(start + mocap_future / self.mocap_joints.shape[0], step, self.mocap_joints.shape[0]),
+                self._generate_steps(start, step, self.emg_data.shape[0])]
         data_sources = [(self.mocap_joints, self.marker, self.marker_pred),
                         (self.emg_data, )]
         tails = [tail_mocap, tail_emg]
@@ -351,6 +369,7 @@ class Data:
                 try:
                     stop = next(gen)
                     start = stop - tail
+                    print(start, stop)
                     for source, sink in zip(sources, sinks):
                         sink.append(source[start:stop])
                 except StopIteration:
@@ -415,6 +434,11 @@ def _crop_data(data: np.ndarray, bounds: np.ndarray):
 
 
 def drop_useless(data: list[Data]) -> list[Data]:
+    """
+    This function cuts data apart if mocap joint angle shows a very high deviation -> most probably markers were swapped
+    :param data:    List of Data instances
+    return:         Same size or larger list of Data instances
+    """
     x = []
     for n_data in data:
         mask = (
@@ -440,20 +464,16 @@ def drop_useless(data: list[Data]) -> list[Data]:
     return x
 
 
-
 if __name__ == "__main__":
     d = read_dataset("Finn",
-                     # timestamp="10-12-24",
+                     timestamp="10-12-24--16-52-09",
                      read_ort=False)
     for nd in d:
         nd.fill()
     d = drop_useless(d)
-    y = []
-    for x in d:
-        y.append(x.get_data(10, 10, 200))
-    for xyx in zip(*y):
-        print(np.vstack(xyx).shape)
-    # d[0].plot(plot_emg=True, plot_ort_angles=True, plot_mocap_joints=True)
-    # plt.show()
+    for nd in d:
+        nd.moving_average_filter(10, on="joints")
+        nd.moving_average_filter(30, on="emg")
+    d[3].plot(plot_emg=True, plot_mocap_joints=True)
 
 
