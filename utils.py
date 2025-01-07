@@ -273,8 +273,10 @@ class Data:
             self.mocap_joints[mask, i] = np.interp(np.where(mask)[0], np.where(~mask)[0], self.mocap_joints[~mask, i])
 
     @staticmethod
-    def _generate_steps(current: float, step: float, total: int):
+    def _generate_steps(current: float, step: float, total: int, debug: bool = False):
         while current < 1:
+            if debug:
+                print(current)
             abs_current = round(current * total)
             yield abs_current
             current += step
@@ -369,11 +371,11 @@ class Data:
                 try:
                     stop = next(gen)
                     start = stop - tail
-                    print(start, stop)
                     for source, sink in zip(sources, sinks):
                         sink.append(source[start:stop])
                 except StopIteration:
                     finished = True
+                    break
         return [np.array(sink) for sinks in data_sinks for sink in sinks]
 
 
@@ -466,14 +468,16 @@ def drop_useless(data: list[Data]) -> list[Data]:
 
 if __name__ == "__main__":
     d = read_dataset("Finn",
-                     timestamp="10-12-24--16-52-09",
+                     # timestamp="10-12-24--16-52-09",
                      read_ort=False)
     for nd in d:
         nd.fill()
     d = drop_useless(d)
     for nd in d:
-        nd.moving_average_filter(10, on="joints")
         nd.moving_average_filter(30, on="emg")
-    d[3].plot(plot_emg=True, plot_mocap_joints=True)
+        nd.moving_average_filter(10, on="joints")
+    win_size = 10
+    d = [x.get_data(win_size, win_size, 222, 1) for x in d]
+    joints, marker, marker_pred, emg_data = (np.vstack(x) for x in zip(*d))
 
 
