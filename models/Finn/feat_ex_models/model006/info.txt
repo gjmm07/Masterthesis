@@ -1,0 +1,3 @@
+lag: 1 
+ features: ('rms',) 
+ learning_rate: 1e-05
