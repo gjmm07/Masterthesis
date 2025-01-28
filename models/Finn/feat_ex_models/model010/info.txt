@@ -1,3 +1,0 @@
-lag: 3 
-features: ('rms', ('zc', 0.003), ('ssc', 0.0003)) 
-learning_rate: 0.0001
