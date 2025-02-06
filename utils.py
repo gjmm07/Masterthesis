@@ -250,12 +250,13 @@ class Data:
                     header="t, y")
         # todo: Export marker prediction and marker if needed
 
-    def fill(self, max_fill_time: float or Sequence[float] = 1.0):
+    def fill(self, max_fill_time: float or Sequence[float] = 1.0, latex_export: bool = False):
         """
         Fills mocap joints linear if joint angles could not be calculated because marker and ref markers
-        where occluded
-        todo: Could be extended to joint angle where important marker where predicted (?)
+        were occluded
+        todo: Could be extended to joint angle where important marker were predicted (?)
         :param max_fill_time: if gap is larger than max_fill_time, gap will NOT be filled
+        :param latex_export: Export for latex
         :return:
         """
         if type(max_fill_time) == float:
@@ -271,6 +272,21 @@ class Data:
             for bounds in sections[(predicted[sections[:, 1]]) & ((sections[:, 1] - sections[:, 0]) < t_lim), :]:
                 mask[bounds[0]+1:bounds[1]+1] = True
             self.mocap_joints[mask, i] = np.interp(np.where(mask)[0], np.where(~mask)[0], self.mocap_joints[~mask, i])
+            if not i and latex_export:
+                # i took trail no. 28, others will larger sets being filled are at 11, 18, 20, 25, 28, 37, 45, 53
+                samples = slice(20_450, 21_300)
+                mask = mask[samples]
+                data = self.mocap_joints[samples, i]
+                non_filled_data = np.where(~mask, data, "NaN")
+                non_filled_data = np.vstack((np.arange(non_filled_data.shape[0]) / 100, non_filled_data)).T
+                np.savetxt("/home/finn/Documents/LatexMA/data/joints_fill/non_filled_data",
+                           non_filled_data, fmt="%s", delimiter=",", header="t, x", comments="")
+
+                filled_data = np.where(mask, data, "NaN")
+                filled_data = np.vstack((np.arange(filled_data.shape[0]) / 100, filled_data)).T
+                np.savetxt("/home/finn/Documents/LatexMA/data/joints_fill/filled_data",
+                           filled_data, fmt="%s", delimiter=",", header="t, x", comments="")
+
 
     @staticmethod
     def _generate_steps(current: float, step: float, total: int, debug: bool = False):
@@ -281,9 +297,24 @@ class Data:
             yield abs_current
             current += step
 
-    def moving_average_filter(self, filter_period: int, on: Literal["joints", "emg"]):
+    def moving_average_filter(self, filter_period: int, on: Literal["joints", "emg"], export_latex: bool=False):
         if on == "joints":
+            unfiltered_data = self.mocap_joints
             self.mocap_joints = uniform_filter1d(self.mocap_joints, size=filter_period, axis=0)
+            if export_latex:
+                cut = slice(100, 1_000)
+                unfiltered_data = unfiltered_data[cut]
+                fig, axs = plt.subplots(2, sharex=True)
+                axs[0].plot(unfiltered_data)
+                axs[1].plot(self.mocap_joints[cut])
+                plt.show()
+
+                np.savetxt("/home/finn/Documents/LatexMA/data/filter_plot/unfiltered_data",
+                           np.c_[np.arange(unfiltered_data.shape[0]) / 100, unfiltered_data], fmt="%f",
+                           delimiter=",", header="t, x, y", comments="")
+                np.savetxt("/home/finn/Documents/LatexMA/data/filter_plot/filtered_data",
+                           np.c_[np.arange(unfiltered_data.shape[0]) / 100, self.mocap_joints[cut]], fmt="%f",
+                           delimiter=",", header="t, x, y", comments="")
         if on == "emg":
             self.emg_data = uniform_filter1d(np.abs(self.emg_data), size=filter_period, axis=0)
 
@@ -435,10 +466,11 @@ def _crop_data(data: np.ndarray, bounds: np.ndarray):
     return data[bounds[0]:bounds[1]]
 
 
-def drop_useless(data: list[Data]) -> list[Data]:
+def drop_useless(data: list[Data], export_latex: bool = False) -> list[Data]:
     """
     This function cuts data apart if mocap joint angle shows a very high deviation -> most probably markers were swapped
-    :param data:    List of Data instances
+    :param data:            List of Data instances
+    :param export_latex:    Weather to export for latex data
     return:         Same size or larger list of Data instances
     """
     x = []
@@ -447,14 +479,17 @@ def drop_useless(data: list[Data]) -> list[Data]:
             # np.any(np.sqrt(
             #     np.sum((n_data.marker[1:, :, :] - n_data.marker[:-1,:,:])**2, axis=2))[:, n_data.imp_marker_idx] > 50, axis=1) |
             # np.any(n_data.marker_pred[:-1] == 0, axis=1) |
-            np.any(np.diff(n_data.mocap_joints, axis=0) > 20, axis=1))
+            np.any(np.abs(np.diff(n_data.mocap_joints, axis=0)) > 20, axis=1))
         mask = [0] + list(np.where(mask)[0]) + [n_data.mocap_joints.shape[0]]
+        stay_data = np.zeros(n_data.mocap_joints.shape[0])
         for i, diff in enumerate(np.diff(mask)):
             new_data = {}
             if diff > 1000:
-                bounds = (mask[i] + 5, mask[i + 1] - 5)
+                bounds = (mask[i] + 10, mask[i + 1] - 10)
+                stay_data[bounds[0]: bounds[1]] = 1
                 for label, mocap in n_data.mocap.items():
-                    new_data[label] = mocap[bounds[0] + 5: bounds[1] - 5]
+                    # new_data[label] = mocap[bounds[0] + 5: bounds[1] - 5]
+                    new_data[label] = mocap[bounds[0]: bounds[1]]
                 # handle other sample rates
                 bounds = np.array(bounds) / n_data.mocap_joints.shape[0]
                 for label, no_mocap in n_data.no_mocap.items():
@@ -463,19 +498,32 @@ def drop_useless(data: list[Data]) -> list[Data]:
                         continue
                     new_data[label] = _crop_data(no_mocap, bounds)
                 x.append(Data(**new_data, marker_labels=n_data.marker_labels))
+        if export_latex:
+            # first plot used "10-12-24--16-52-09" and cut: 57500, 59300
+            cut = slice(11800, 12600)
+            stay_data = stay_data[cut]
+            plot_data = n_data.mocap_joints[cut]
+            np.savetxt("/home/finn/Documents/LatexMA/data/drop_plot/data1",
+                       np.c_[np.arange(plot_data.shape[0]) / 100, plot_data, stay_data * -200 + 160], fmt="%f",
+                       delimiter=",", header="t, x, y, mask", comments="")
+            stay_data = np.tile(stay_data, (int(np.max(n_data.mocap_joints) -  np.min(n_data.mocap_joints)), 1))
+            plt.imshow(stay_data, vmin=0.1, aspect='auto', alpha=0.1, origin="lower")
+            plt.plot(plot_data)
+            plt.show()
     return x
 
 
 if __name__ == "__main__":
     d = read_dataset("Finn",
-                     # timestamp="10-12-24--16-52-09",
+                     timestamp="10-12-24--16-52-09",
                      read_ort=False)
+
     for nd in d:
         nd.fill()
     d = drop_useless(d)
-    for nd in d:
-        nd.moving_average_filter(30, on="emg")
-        nd.moving_average_filter(10, on="joints")
+    for nd in d[4:5]:
+        nd.moving_average_filter(10, on="joints", export_latex=False)
+    exit()
     win_size = 10
     d = [x.get_data(win_size, win_size, 222, 1) for x in d]
     joints, marker, marker_pred, emg_data = (np.vstack(x) for x in zip(*d))
