@@ -1,12 +1,12 @@
 use_direct_model : False 
 use_teacher_forcing : False 
 lag : 1 
-epochs : 500 
+epochs : 1000 
 n_past_joints : 3 
 learning_rate : 0.0001 
 batch_size : 32 
 features : ('mav', ('zc', 0.003), ('ssc', 0.0003), 'wl') 
-warm_up : 20 
+warm_up : 150 
 
 min_joints: -28.99422836303711
 max_joints: 156.77395629882812
