@@ -515,12 +515,14 @@ def drop_useless(data: list[Data], export_latex: bool = False) -> list[Data]:
 
 if __name__ == "__main__":
     d = read_dataset("Finn",
-                     timestamp="10-12-24--16-52-09",
-                     read_ort=False)
+                     timestamp="10-12-24--17-14-13",
+                     read_ort=True)
 
     for nd in d:
         nd.fill()
     d = drop_useless(d)
+    d[0].plot(plot_emg=True, plot_mocap_joints=True, plot_ort_angles=True)
+    exit()
     for nd in d[4:5]:
         nd.moving_average_filter(10, on="joints", export_latex=False)
     exit()
