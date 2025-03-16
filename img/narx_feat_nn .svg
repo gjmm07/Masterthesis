@@ -15,28 +15,34 @@
    xmlns:svg="http://www.w3.org/2000/svg">
   <sodipodi:namedview
      id="namedview7"
-     pagecolor="#ffffff"
+     pagecolor="#6f6f6f"
      bordercolor="#000000"
      borderopacity="0.25"
      inkscape:showpageshadow="2"
-     inkscape:pageopacity="0.0"
+     inkscape:pageopacity="0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="true"
      inkscape:lockguides="true"
      inkscape:zoom="0.50000001"
-     inkscape:cx="1630"
-     inkscape:cy="1242"
+     inkscape:cx="1266"
+     inkscape:cy="903.99998"
      inkscape:window-width="1920"
      inkscape:window-height="1143"
      inkscape:window-x="0"
      inkscape:window-y="34"
      inkscape:window-maximized="1"
-     inkscape:current-layer="g5047"
+     inkscape:current-layer="g593"
      showguides="true" />
   <defs
      id="defs2">
+    <rect
+       x="263.95202"
+       y="0"
+       width="4.8953246"
+       height="68.970207"
+       id="rect1091" />
     <rect
        x="860.93573"
        y="32.834099"
@@ -910,21 +916,21 @@
         <g
            id="g3216"
            transform="translate(-6.916885,-2.5250774)"
-           style="fill:#000000">
+           style="fill:#ffffff;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3210"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3212"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3214"
              cx="175.94792"
              cy="193.41042"
@@ -966,21 +972,21 @@
         <g
            id="g3238"
            transform="translate(-8.1777023,-19.243132)"
-           style="fill:#000000">
+           style="fill:#ffffff;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3232"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3234"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3236"
              cx="175.94792"
              cy="193.41042"
@@ -1187,21 +1193,22 @@
          transform="translate(-20.706307,3.1714852)">
         <g
            id="g1270"
-           transform="translate(7.3663483,32.179871)">
+           transform="translate(7.3663483,32.179871)"
+           style="fill:#ffffff;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="path1261"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle1263"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle1265"
              cx="175.94792"
              cy="193.41042"
@@ -1257,21 +1264,21 @@
         <g
            id="g3192"
            transform="translate(7.3663483,32.179871)"
-           style="fill:#000000;stroke:#1a1a1a">
+           style="fill:#ffffff;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;stroke:#1a1a1a;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3186"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#1a1a1a;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3188"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#1a1a1a;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3190"
              cx="175.94792"
              cy="193.41042"
@@ -1337,80 +1344,80 @@
            y="15.722607" /></text>
       <text
          xml:space="preserve"
-         style="font-size:3.88056px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="55.966431"
          y="26.945194"
          id="text2588"><tspan
            sodipodi:role="line"
            id="tspan2586"
-           style="font-size:3.88056px;stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="55.966431"
            y="26.945194">EMG-Input: </tspan><tspan
            sodipodi:role="line"
-           style="font-size:3.88056px;stroke-width:0.6"
-           x="55.966431"
-           y="31.795895"
-           id="tspan2590">$(n\_win, lag, feature \times channels)$</tspan></text>
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
+           x="55.966434"
+           y="42.820194"
+           id="tspan2590">(n_win, lag, feature x channels)</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="162.50636"
          y="27.668079"
          id="text3268"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="162.50636"
            y="27.668079"
            id="tspan3266">Flatten</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="265.07788"
          y="27.668079"
          id="text3274"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="265.07788"
            y="27.668079"
-           id="tspan3272">$128$</tspan></text>
+           id="tspan3272">128</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="355.05936"
          y="87.726952"
          id="text3484"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="355.05936"
            y="87.726952"
-           id="tspan3482">$64$</tspan></text>
+           id="tspan3482">64</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="409.48141"
          y="130.24016"
          id="text3696"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="409.48141"
            y="130.24016"
-           id="tspan3694">$16$</tspan></text>
+           id="tspan3694">16</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:7.05556px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
-         x="572.74268"
-         y="229.40837"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         x="549.09619"
+         y="344.94412"
          id="text3700"><tspan
            sodipodi:role="line"
-           style="font-size:7.05556px;stroke-width:0.6"
-           x="572.74268"
-           y="229.40837"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
+           x="549.09619"
+           y="344.94412"
            id="tspan3698">Output: </tspan><tspan
            sodipodi:role="line"
-           style="font-size:7.05556px;stroke-width:0.6"
-           x="572.74268"
-           y="238.22781"
-           id="tspan6406">$(Y_{1, t}; Y_{2, t})$</tspan></text>
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
+           x="549.09619"
+           y="360.81912"
+           id="tspan6406">Y_{1, t}; Y_{2, t}</tspan></text>
       <g
          id="g2792"
          transform="translate(187.6589,228.21361)"
@@ -1418,21 +1425,21 @@
         <g
            id="g2784"
            transform="translate(-8.1777023,-19.243132)"
-           style="fill:#000000;fill-opacity:1">
+           style="fill:#ffffff;fill-opacity:1;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle2778"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle2780"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle2782"
              cx="175.94792"
              cy="193.41042"
@@ -1467,21 +1474,21 @@
         <g
            id="g3289"
            transform="translate(-8.1777023,-19.243132)"
-           style="fill:#000000">
+           style="fill:#ffffff;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3283"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3285"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3287"
              cx="175.94792"
              cy="193.41042"
@@ -1516,21 +1523,21 @@
         <g
            id="g3305"
            transform="translate(-8.1777023,-19.243132)"
-           style="fill:#000000">
+           style="fill:#ffffff;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3299"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3301"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle3303"
              cx="175.94792"
              cy="193.41042"
@@ -1553,20 +1560,20 @@
       </g>
       <text
          xml:space="preserve"
-         style="font-size:3.88056px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="257.20981"
          y="293.68811"
          id="text3758"><tspan
            sodipodi:role="line"
            id="tspan3754"
-           style="font-size:3.88056px;stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="257.20981"
            y="293.68811">Past-Joints-Input: </tspan><tspan
            sodipodi:role="line"
-           style="font-size:3.88056px;stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="257.20981"
-           y="298.53882"
-           id="tspan3756">$(n\_win, joint\_lag \times 2)$</tspan></text>
+           y="309.56311"
+           id="tspan3756">(n_win, joint_lag x 2)</tspan></text>
       <path
          id="rect4032"
          style="fill:#87de87;fill-opacity:1;stroke:#000000;stroke-width:0.725;stroke-linejoin:round;stroke-miterlimit:3.8;stroke-dasharray:none;paint-order:markers fill stroke"
@@ -1578,59 +1585,59 @@
          d="m 323.43304,366.04792 v 5.7807 h -24.63319 v 15.02323 h 24.63319 v 5.78039 l 13.29232,-13.292 z" />
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="463.90347"
          y="194.9305"
          id="text6414"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="463.90347"
            y="194.9305"
-           id="tspan6412">$8$</tspan></text>
+           id="tspan6412">8</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="518.32556"
          y="221.28761"
          id="text7144"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="518.32556"
            y="221.28761"
-           id="tspan7142">$4$</tspan></text>
+           id="tspan7142">4</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="355.05936"
          y="303.21017"
          id="text7148"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="355.05936"
            y="303.21017"
-           id="tspan7146">$6$</tspan></text>
+           id="tspan7146">6</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="409.48141"
          y="303.21017"
          id="text7152"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="409.48141"
            y="303.21017"
-           id="tspan7150">$4$</tspan></text>
+           id="tspan7150">4</tspan></text>
       <text
          xml:space="preserve"
-         style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+         style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
          x="396.20999"
          y="466.06503"
          id="text7156"><tspan
            sodipodi:role="line"
-           style="stroke-width:0.6"
+           style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
            x="396.20999"
            y="466.06503"
-           id="tspan7154">$(Y_{1, t-i}; Y_{2, t-i}) \text{ , with } i = 1, 2, 3$</tspan></text>
+           id="tspan7154">(Y_{1, t-i}; Y_{2, t-i} , with i = 1, 2, 3</tspan></text>
       <g
          id="g593"
          transform="translate(241.70273,193.50865)"
@@ -1638,21 +1645,21 @@
         <g
            id="g587"
            transform="translate(-8.1777023,-19.243132)"
-           style="fill:#000000">
+           style="fill:#ffffff;stroke:#ffffff">
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle581"
              cx="175.94792"
              cy="182.03333"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle583"
              cx="175.94792"
              cy="187.72186"
              r="1.3229166" />
           <circle
-             style="opacity:1;fill:#000000;stroke:#000000;stroke-width:1.3;paint-order:markers fill stroke"
+             style="opacity:1;fill:#ffffff;stroke:#ffffff;stroke-width:1.3;paint-order:markers fill stroke"
              id="circle585"
              cx="175.94792"
              cy="193.41042"
@@ -1673,6 +1680,11 @@
            rx="8.3865805"
            ry="8.386754" />
       </g>
+      <text
+         xml:space="preserve"
+         transform="matrix(0.26458333,0,0,0.26458333,-35.366275,8.696827)"
+         id="text1089"
+         style="font-size:48px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;white-space:pre;shape-inside:url(#rect1091);display:inline;fill:#87de87;stroke:#80b3ff;stroke-width:2.26772;stroke-linejoin:round;stroke-miterlimit:3.8;paint-order:markers fill stroke" />
     </g>
   </g>
 </svg>

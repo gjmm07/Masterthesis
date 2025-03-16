@@ -1,7 +1,7 @@
 # Masterthesis
 
 Inside this repository the corresponding files to the Masterthesis **Machine Learning for predicting joint angles from
-Eletromygraphy Signals: Towards Intuitve Exoskeleton Control** are located. 
+Eletromygraphy Signals: Towards Intuitive Exoskeleton Control** are located. 
 
 ## Bilateral Mirrored Training 
 
@@ -10,7 +10,7 @@ with unilateral paralyzed patients. Herein the motion of the subject's healthy a
 Vicon Motion Capturing. Two joint angles (elbow flexion/extension, forearm pronation/supination) are calculated 
 based on the tracked markers: 
 
-![xy](./img/AngleCalc.png)
+![Calculating joint angles from labeled motion capture markers](./img/AngleCalc.png)
 
 The calculated joint angles are mirrored to an exoskeleton prototype, allowing the unilateral paralyzed 
 patients the execution of mirrored movements.  In parallel EMG signals are recorded on the bilateral arm during mirrored 
@@ -20,19 +20,19 @@ movements of both arms:
 ![Data Recording Healthy Subject with EMG Sensors attached left, Mocap Markers right and nearby exoskeleton](./img/healthyRec.jpg)
 -->
 
-<img src="./img/healthyRec.jpg" alt="drawing" width="400"/>
+<img src="./img/healthyRec.jpg" alt="drawing" width="700"/>
 
 Executing [this](data_rec.py) file, with its submodules [Joint Angle Calculation](ViconMoCap.py), [EMG Recoder](EMGRecorder.py) and [Exoskeleton Driver](OrthosisMotorController) 
-file starts the recording state machine, displayed below. 
+file starts the recording state machine, which functionality is displayed below. 
 
-![State Machine Diagram](./img/drawing.svg)
+![State Machine Diagram](./img/stateMachine.png)
 
 ## Data Preparation 
 
 Joint angle data is affected by noise, which is either filtered or in other cases cut out, to retrieve a
-cleaned dataset: 
+cleaned dataset. The corresponding code can be found [here](utils.py) with a ~45-second segment plotted below:  
 
-![xy](./img/Results.png)
+![Sequential data trail of EMG, calculated joint angles and exoskeleton data](./img/Results.png)
 
 EMG features or the positive EMG envelope are extracted from the data to train different types of deep learning models. 
 
@@ -43,23 +43,28 @@ and optimized in a grid search, as can be seen [here](JointAnglePrediction.ipynb
 
 Exemplary a feedforward architecture to process EMG features, extracted in 100ms windows is shown below: 
 
-![xy](./img/feat_nn.svg)
+![Feedforward architecture to predict two joint angles](./img/feat_nn.svg)
 
 Furthermore, models are augmented with NARX functionality and trained using scheduled sampling: 
 
-![xy](./img/narx_feat_nn%20.svg)
+![Feedforward architecture with NARX augmentation](./img/narx_feat_nn%20.svg)
 
 ## Results 
 
 Predicting unseen data yields high prediction accuracy (R² = 0.847). As can be seen in the plot below 
 (blue: targets, orange: predictions made by the model), predicting the 
 elbow flexion/extension joint works very good (R² = 0.93), while forearm pronation/supination 
-works worse (R² = 0.763).
+yields worse results (R² = 0.763), because of hard to measure muscles involved in the corresponding motion. 
 
-![xy](./img/FinalRes.png)
+![Best model predicting a unseen trail](./img/FinalRes.png)
 
 Grid search results show that a feature set comprised of MAV, WL, SSC and ZC, with five lagged EMG windows 
-yield the best results. NARX functionality does not improve these results in a realistic testing scenario. 
+yield the best results. NARX functionality does not improve these results in a realistic testing scenario. All 
+results can be found [here](results/Results.ipynb)
+
+## Get in Touch 
+If you are interested in accessing the complete thesis or the training data used in this project, you’re welcome 
+to contact me through the email address provided in my GitHub profile.
 
 
 

@@ -15,25 +15,25 @@
    xmlns:svg="http://www.w3.org/2000/svg">
   <sodipodi:namedview
      id="namedview7"
-     pagecolor="#ffffff"
+     pagecolor="#6f6f6f"
      bordercolor="#000000"
      borderopacity="0.25"
      inkscape:showpageshadow="2"
-     inkscape:pageopacity="0.0"
+     inkscape:pageopacity="0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="true"
      inkscape:lockguides="true"
      inkscape:zoom="0.4204826"
-     inkscape:cx="1234.296"
-     inkscape:cy="932.26211"
+     inkscape:cx="1172.4623"
+     inkscape:cy="932.26212"
      inkscape:window-width="1920"
      inkscape:window-height="1143"
      inkscape:window-x="0"
      inkscape:window-y="34"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer1"
+     inkscape:current-layer="g50243"
      showguides="true" />
   <defs
      id="defs2">
@@ -1682,55 +1682,55 @@
           </g>
           <text
              xml:space="preserve"
-             style="font-size:7.05556px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
              x="179.13611"
-             y="37.608391"
+             y="38.137558"
              id="text3268"><tspan
                sodipodi:role="line"
-               style="font-size:7.05556px;stroke-width:0.6"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
                x="179.13611"
-               y="37.608391"
+               y="38.137558"
                id="tspan3266">Input</tspan></text>
           <text
              xml:space="preserve"
-             style="font-size:7.05556px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;white-space:pre;inline-size:239.521;display:inline;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;white-space:pre;inline-size:239.521;display:inline;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke;stroke:none"
              x="46.671593"
              y="-135.56639"
              id="text19741"
              transform="translate(40.327297,228.49319)"><tspan
                x="46.671593"
                y="-135.56639"
-               id="tspan2355"><tspan
-                 style="stroke-width:0.6"
-                 id="tspan2353">EMG-Input: 
+               id="tspan3686"><tspan
+                 style="fill:#ffffff;stroke-width:0.6"
+                 id="tspan3684">EMG-Input: 
 </tspan></tspan><tspan
                x="46.671593"
-               y="-126.74695"
-               id="tspan2359"><tspan
-                 style="stroke-width:0.6"
-                 id="tspan2357">$(n\_win, samples, channels)$</tspan></tspan></text>
+               y="-119.69139"
+               id="tspan3690"><tspan
+                 style="fill:#ffffff;stroke-width:0.6"
+                 id="tspan3688">(n_win, samples, channels)</tspan></tspan></text>
           <text
              xml:space="preserve"
-             style="font-size:7.05556px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
              x="256.20807"
              y="37.654251"
              id="text19747"><tspan
                sodipodi:role="line"
-               style="font-size:7.05556px;stroke-width:0.6"
-               x="257.3793"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
+               x="258.31628"
                y="37.654251"
-               id="tspan19753">LSTM1 ($64$) </tspan></text>
+               id="tspan19753">LSTM1 (64) </tspan></text>
           <text
              xml:space="preserve"
-             style="font-size:7.05556px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
              x="343.10205"
              y="98.428558"
              id="text20509"><tspan
                sodipodi:role="line"
-               style="font-size:7.05556px;stroke-width:0.6"
-               x="344.27328"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
+               x="345.21027"
                y="98.428558"
-               id="tspan20507">LSTM2 ($32$) </tspan></text>
+               id="tspan20507">LSTM2 (32) </tspan></text>
           <text
              xml:space="preserve"
              style="font-size:7.05556px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
@@ -1752,18 +1752,20 @@
                style="font-size:7.05556px;stroke-width:0.6"
                x="402.04083"
                y="122.38921"
-               id="tspan22031">$32$ </tspan></text>
+               id="tspan22031"><tspan
+   style="font-size:12.7px;fill:#ffffff"
+   id="tspan2151">32</tspan> </tspan></text>
           <text
              xml:space="preserve"
-             style="font-size:7.05556px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
              x="453.47382"
              y="158.35599"
              id="text22037"><tspan
                sodipodi:role="line"
-               style="font-size:7.05556px;stroke-width:0.6"
-               x="454.64505"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
+               x="455.58203"
                y="158.35599"
-               id="tspan22035">$8$ </tspan></text>
+               id="tspan22035">8 </tspan></text>
           <g
              id="g50648"
              transform="translate(-42.333368,4.7625002)">
@@ -2373,20 +2375,20 @@
           </g>
           <text
              xml:space="preserve"
-             style="font-size:3.88056px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
              x="301.33917"
              y="315.8255"
              id="text3758"><tspan
                sodipodi:role="line"
                id="tspan3754"
-               style="font-size:3.88056px;stroke-width:0.6"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
                x="301.33917"
                y="315.8255">Past-Joints-Input: </tspan><tspan
                sodipodi:role="line"
-               style="font-size:3.88056px;stroke-width:0.6"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
                x="301.33917"
-               y="320.67621"
-               id="tspan3756">$(n\_win, joint\_lag \times 2)$</tspan></text>
+               y="331.7005"
+               id="tspan3756">(n_win, joint_lag times 2)</tspan></text>
           <path
              id="rect4032"
              style="fill:#87de87;fill-opacity:1;stroke:#000000;stroke-width:0.725;stroke-linejoin:round;stroke-miterlimit:3.8;stroke-dasharray:none;paint-order:markers fill stroke"
@@ -2398,26 +2400,26 @@
              d="m 367.56277,388.18525 v 5.7807 h -24.63319 v 15.02323 h 24.63319 v 5.78039 l 13.29232,-13.292 z" />
           <text
              xml:space="preserve"
-             style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
              x="508.03284"
              y="217.06773"
              id="text6414"><tspan
                sodipodi:role="line"
-               style="stroke-width:0.6"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
                x="508.03284"
                y="217.06773"
-               id="tspan6412">$8$</tspan></text>
+               id="tspan6412">8</tspan></text>
           <text
              xml:space="preserve"
-             style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
+             style="font-size:12.7px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
              x="562.4549"
              y="243.42485"
              id="text7144"><tspan
                sodipodi:role="line"
-               style="stroke-width:0.6"
+               style="font-size:12.7px;fill:#ffffff;stroke-width:0.6"
                x="562.4549"
                y="243.42485"
-               id="tspan7142">$4$</tspan></text>
+               id="tspan7142">4</tspan></text>
           <text
              xml:space="preserve"
              style="font-size:16.9333px;font-family:'Latin Modern Math';-inkscape-font-specification:'Latin Modern Math';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.600001;stroke-miterlimit:3.8;paint-order:markers fill stroke"
